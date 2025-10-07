@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import ProgressCard from "@/components/ProgressCard";
 import BadgeDisplay from "@/components/BadgeDisplay";
@@ -6,8 +8,30 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Target, Code, Cpu, CheckCircle2, Clock, Trophy } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Dashboard = () => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center">
+        <p className="text-lg">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   const badges = [
     { id: "1", name: "Circuit Master", icon: "trophy", description: "Completed 10 circuits", earned: true },
     { id: "2", name: "Code Ninja", icon: "zap", description: "Wrote 1000 lines", earned: true },

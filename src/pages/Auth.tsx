@@ -1,29 +1,53 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Zap, Mail, Lock, User } from "lucide-react";
 
 const Auth = () => {
-  const { toast } = useToast();
+  const { signIn, signUp, user } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent, type: "login" | "signup") => {
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate auth
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: type === "login" ? "Welcome back! 🚀" : "Account created! 🎉",
-        description: type === "login" ? "You're successfully logged in." : "Your RoboJourney begins now.",
-      });
-    }, 1500);
+    const { error } = await signIn(loginEmail, loginPassword);
+    
+    if (!error) {
+      navigate("/dashboard");
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    const { error } = await signUp(signupEmail, signupPassword, signupName);
+    
+    if (!error) {
+      navigate("/dashboard");
+    }
+    
+    setIsLoading(false);
   };
 
   return (
@@ -44,7 +68,7 @@ const Auth = () => {
             </TabsList>
 
             <TabsContent value="login">
-              <form onSubmit={(e) => handleSubmit(e, "login")} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
                   <div className="relative">
@@ -54,6 +78,8 @@ const Auth = () => {
                       type="email"
                       placeholder="your@email.com"
                       className="pl-10 bg-background/50"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -67,6 +93,8 @@ const Auth = () => {
                       type="password"
                       placeholder="••••••••"
                       className="pl-10 bg-background/50"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
                       required
                     />
                   </div>
@@ -82,7 +110,7 @@ const Auth = () => {
             </TabsContent>
 
             <TabsContent value="signup">
-              <form onSubmit={(e) => handleSubmit(e, "signup")} className="space-y-4">
+              <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Full Name</Label>
                   <div className="relative">
@@ -92,6 +120,8 @@ const Auth = () => {
                       type="text"
                       placeholder="John Doe"
                       className="pl-10 bg-background/50"
+                      value={signupName}
+                      onChange={(e) => setSignupName(e.target.value)}
                       required
                     />
                   </div>
@@ -105,6 +135,8 @@ const Auth = () => {
                       type="email"
                       placeholder="your@email.com"
                       className="pl-10 bg-background/50"
+                      value={signupEmail}
+                      onChange={(e) => setSignupEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -118,7 +150,10 @@ const Auth = () => {
                       type="password"
                       placeholder="••••••••"
                       className="pl-10 bg-background/50"
+                      value={signupPassword}
+                      onChange={(e) => setSignupPassword(e.target.value)}
                       required
+                      minLength={6}
                     />
                   </div>
                 </div>

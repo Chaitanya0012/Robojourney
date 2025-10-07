@@ -1,9 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, BookOpen, MessageSquare, User, BarChart3, Zap } from "lucide-react";
+import { Home, BookOpen, MessageSquare, User, BarChart3, Zap, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navigation = () => {
   const location = useLocation();
+  const { user, signOut } = useAuth();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -47,11 +49,22 @@ const Navigation = () => {
             ))}
           </div>
           
-          <Link to="/auth">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-cyan transition-all hover:shadow-glow-cyan">
-              Sign In
+          {user ? (
+            <Button 
+              onClick={() => signOut()} 
+              variant="outline" 
+              className="border-primary/50 hover:bg-primary/10"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
             </Button>
-          </Link>
+          ) : (
+            <Link to="/auth">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-cyan transition-all hover:shadow-glow-cyan">
+                Sign In
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </nav>

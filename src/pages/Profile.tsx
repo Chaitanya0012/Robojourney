@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import BadgeDisplay from "@/components/BadgeDisplay";
 import { Card } from "@/components/ui/card";
@@ -5,8 +7,45 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Edit, Mail, Calendar, Award, TrendingUp } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 
 const Profile = () => {
+  const { user, loading: authLoading } = useAuth();
+  const { profile, isLoading: profileLoading } = useProfile();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
+
+  if (authLoading || profileLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center">
+        <p className="text-lg">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center">
+        <p className="text-lg">Profile not found</p>
+      </div>
+    );
+  }
+
+  const displayName = profile.full_name || "User";
+  const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
+  const joinedDate = new Date(profile.joined_at).toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long' 
+  });
+  const levelProgress = (profile.xp % 1000) / 10; // Assuming 1000 XP per level
+  const xpToNextLevel = 1000 - (profile.xp % 1000);
+
   const badges = [
     { id: "1", name: "Circuit Master", icon: "trophy", description: "Completed 10 circuits", earned: true },
     { id: "2", name: "Code Ninja", icon: "zap", description: "Wrote 1000 lines", earned: true },
@@ -17,9 +56,9 @@ const Profile = () => {
   ];
 
   const stats = [
-    { label: "Total Points", value: "2,450", icon: Award, color: "primary" as const },
-    { label: "Rank", value: "#12", icon: TrendingUp, color: "secondary" as const },
-    { label: "Projects", value: "18", icon: Calendar, color: "success" as const },
+    { label: "Total Points", value: profile.total_points.toLocaleString(), icon: Award, color: "primary" as const },
+    { label: "Rank", value: profile.rank ? `#${profile.rank}` : "Unranked", icon: TrendingUp, color: "secondary" as const },
+    { label: "Projects", value: profile.projects_count.toString(), icon: Calendar, color: "success" as const },
   ];
 
   const skills = [
@@ -39,20 +78,22 @@ const Profile = () => {
           <Card className="p-8 mb-8 bg-gradient-to-br from-primary/10 via-card/50 to-secondary/10 backdrop-blur-sm border-primary/30 animate-slide-up">
             <div className="flex flex-col md:flex-row items-center gap-6">
               <Avatar className="h-32 w-32 border-4 border-primary/50 shadow-glow-cyan">
-                <AvatarImage src="/placeholder.svg" />
-                <AvatarFallback className="text-2xl bg-primary/20">JD</AvatarFallback>
+                <AvatarImage src={profile.avatar_url || undefined} />
+                <AvatarFallback className="text-2xl bg-primary/20">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-center md:text-left">
-                <h1 className="text-3xl font-bold mb-2">John Doe</h1>
-                <p className="text-muted-foreground mb-4">Robotics Enthusiast | Level 12 | 2,450 XP</p>
+                <h1 className="text-3xl font-bold mb-2">{displayName}</h1>
+                <p className="text-muted-foreground mb-4">
+                  Robotics Enthusiast | Level {profile.level} | {profile.xp.toLocaleString()} XP
+                </p>
                 <div className="flex flex-wrap gap-4 justify-center md:justify-start text-sm">
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-primary" />
-                    <span>john.doe@robojourney.com</span>
+                    <span>{profile.email || user?.email}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    <span>Joined March 2024</span>
+                    <span>Joined {joinedDate}</span>
                   </div>
                 </div>
               </div>
@@ -65,10 +106,10 @@ const Profile = () => {
             {/* Level Progress */}
             <div className="mt-6">
               <div className="flex justify-between text-sm mb-2">
-                <span>Level 12</span>
-                <span className="text-muted-foreground">750 XP to Level 13</span>
+                <span>Level {profile.level}</span>
+                <span className="text-muted-foreground">{xpToNextLevel} XP to Level {profile.level + 1}</span>
               </div>
-              <Progress value={65} className="h-3" />
+              <Progress value={levelProgress} className="h-3" />
             </div>
           </Card>
 
