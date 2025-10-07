@@ -3,7 +3,7 @@ import Navigation from "@/components/Navigation";
 import ResourceCard from "@/components/ResourceCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, Plus } from "lucide-react";
+import { Search, Filter, Plus, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -23,10 +23,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useResources } from "@/hooks/useResources";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Resources = () => {
   const { user } = useAuth();
-  const { resources, isLoading, createResource } = useResources();
+  const { resources, isLoading, createResource, deleteResource } = useResources();
+  const { isModerator } = useUserRole();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -37,6 +39,8 @@ const Resources = () => {
     url: "",
     file_url: null,
     image_url: null,
+    difficulty_level: "beginner",
+    resource_type: "article",
   });
 
   const filteredResources = resources.filter((resource) => {
@@ -49,7 +53,16 @@ const Resources = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createResource(newResource);
-    setNewResource({ title: "", description: "", category: "Programming", url: "", file_url: null, image_url: null });
+    setNewResource({ 
+      title: "", 
+      description: "", 
+      category: "Programming", 
+      url: "", 
+      file_url: null, 
+      image_url: null,
+      difficulty_level: "beginner",
+      resource_type: "article",
+    });
     setOpen(false);
   };
 
@@ -63,17 +76,17 @@ const Resources = () => {
               <h1 className="text-4xl font-bold mb-2">Resource Hub</h1>
               <p className="text-muted-foreground">Explore curated tutorials, guides, and tools to enhance your learning</p>
             </div>
-            {user && (
+            {user && isModerator && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    Submit Resource
+                    Add Resource
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Submit a New Resource</DialogTitle>
+                    <DialogTitle>Add a New Resource</DialogTitle>
                     <DialogDescription>Share a learning resource with the community</DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
@@ -110,6 +123,34 @@ const Resources = () => {
                       </Select>
                     </div>
                     <div>
+                      <Label htmlFor="difficulty">Difficulty Level</Label>
+                      <Select value={newResource.difficulty_level} onValueChange={(value) => setNewResource({ ...newResource, difficulty_level: value })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="beginner">Beginner</SelectItem>
+                          <SelectItem value="intermediate">Intermediate</SelectItem>
+                          <SelectItem value="advanced">Advanced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="type">Resource Type</Label>
+                      <Select value={newResource.resource_type} onValueChange={(value) => setNewResource({ ...newResource, resource_type: value })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="video">Video</SelectItem>
+                          <SelectItem value="article">Article</SelectItem>
+                          <SelectItem value="tutorial">Tutorial</SelectItem>
+                          <SelectItem value="documentation">Documentation</SelectItem>
+                          <SelectItem value="course">Course</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
                       <Label htmlFor="url">URL</Label>
                       <Input
                         id="url"
@@ -119,7 +160,7 @@ const Resources = () => {
                         placeholder="https://..."
                       />
                     </div>
-                    <Button type="submit" className="w-full">Submit Resource</Button>
+                    <Button type="submit" className="w-full">Add Resource</Button>
                   </form>
                 </DialogContent>
               </Dialog>
@@ -156,7 +197,6 @@ const Resources = () => {
                   <SelectItem value="Mechanical">Mechanical</SelectItem>
                 </SelectContent>
               </Select>
-
             </div>
           </div>
 
@@ -169,16 +209,26 @@ const Resources = () => {
             <>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredResources.map((resource, index) => (
-                  <div key={resource.id} style={{ animationDelay: `${index * 0.1}s` }}>
+                  <div key={resource.id} className="relative group" style={{ animationDelay: `${index * 0.1}s` }}>
                     <ResourceCard
                       title={resource.title}
                       description={resource.description || ""}
                       category={resource.category}
-                      type="Resource"
-                      difficulty="beginner"
+                      type={resource.resource_type || "Resource"}
+                      difficulty={(resource.difficulty_level as "beginner" | "intermediate" | "advanced") || "beginner"}
                       rating={resource.avg_rating}
                       ratingCount={resource.rating_count}
                     />
+                    {isModerator && (
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => deleteResource(resource.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

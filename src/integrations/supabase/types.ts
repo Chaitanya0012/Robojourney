@@ -38,6 +38,45 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          created_at: string
+          id: string
+          is_anonymous: boolean | null
+          is_approved: boolean | null
+          message: string
+          rating: number | null
+          subject: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_anonymous?: boolean | null
+          is_approved?: boolean | null
+          message: string
+          rating?: number | null
+          subject: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_anonymous?: boolean | null
+          is_approved?: boolean | null
+          message?: string
+          rating?: number | null
+          subject?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -87,10 +126,13 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          deadline: string | null
           description: string | null
+          help_request: string | null
           icon: string | null
           id: string
           progress: number
+          roadmap: string | null
           title: string
           updated_at: string
           user_id: string
@@ -98,10 +140,13 @@ export type Database = {
         Insert: {
           color?: string | null
           created_at?: string
+          deadline?: string | null
           description?: string | null
+          help_request?: string | null
           icon?: string | null
           id?: string
           progress?: number
+          roadmap?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -109,10 +154,13 @@ export type Database = {
         Update: {
           color?: string | null
           created_at?: string
+          deadline?: string | null
           description?: string | null
+          help_request?: string | null
           icon?: string | null
           id?: string
           progress?: number
+          roadmap?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -169,9 +217,12 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          difficulty_level: string | null
           file_url: string | null
           id: string
           image_url: string | null
+          is_approved: boolean | null
+          resource_type: string | null
           title: string
           updated_at: string
           url: string | null
@@ -181,9 +232,12 @@ export type Database = {
           category: string
           created_at?: string
           description?: string | null
+          difficulty_level?: string | null
           file_url?: string | null
           id?: string
           image_url?: string | null
+          is_approved?: boolean | null
+          resource_type?: string | null
           title: string
           updated_at?: string
           url?: string | null
@@ -193,9 +247,12 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          difficulty_level?: string | null
           file_url?: string | null
           id?: string
           image_url?: string | null
+          is_approved?: boolean | null
+          resource_type?: string | null
           title?: string
           updated_at?: string
           url?: string | null
@@ -232,7 +289,7 @@ export type Database = {
           },
         ]
       }
-      user_skills: {
+      user_confidence: {
         Row: {
           color: string | null
           created_at: string
@@ -258,6 +315,27 @@ export type Database = {
           level?: number
           name?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
         Relationships: []
@@ -288,10 +366,16 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -418,6 +502,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const

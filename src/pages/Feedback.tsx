@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Send, Star } from "lucide-react";
 import {
   Select,
@@ -14,9 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useFeedback } from "@/hooks/useFeedback";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Feedback = () => {
-  const { toast } = useToast();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const { feedback, createFeedback, isLoading } = useFeedback();
   const [rating, setRating] = useState(0);
   const [formData, setFormData] = useState({
     type: "",
@@ -24,15 +28,38 @@ const Feedback = () => {
     message: "",
   });
 
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Feedback Submitted! 🎉",
-      description: "Thank you for your valuable feedback. We'll review it soon.",
+    createFeedback({
+      type: formData.type,
+      subject: formData.subject,
+      message: formData.message,
+      rating: rating,
+      is_anonymous: true,
     });
     setFormData({ type: "", subject: "", message: "" });
     setRating(0);
   };
+
+  if (loading || isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center">
+        <p className="text-lg">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const approvedFeedback = feedback.filter(f => f.is_approved);
 
   const StarRating = () => (
     <div className="flex gap-1">
@@ -126,29 +153,32 @@ const Feedback = () => {
           {/* Recent Feedback Section */}
           <div className="mt-8">
             <h2 className="text-2xl font-bold mb-4">Recent Community Feedback</h2>
-            <div className="space-y-4">
-              {[
-                { author: "Alex Chen", feedback: "The Arduino workshop was amazing! Would love more advanced circuits.", rating: 5 },
-                { author: "Sarah Johnson", feedback: "Great resource hub. Could use more Python tutorials.", rating: 4 },
-                { author: "Mike Rodriguez", feedback: "Mentorship program is excellent. Very helpful guidance.", rating: 5 },
-              ].map((item, index) => (
-                <Card
-                  key={index}
-                  className="p-4 bg-card/30 backdrop-blur-sm border-border/50 animate-slide-up"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="font-semibold">{item.author}</p>
-                    <div className="flex">
-                      {Array.from({ length: item.rating }).map((_, i) => (
-                        <Star key={i} className="h-4 w-4 fill-primary text-primary" />
-                      ))}
+            {approvedFeedback.length === 0 ? (
+              <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
+                <p className="text-muted-foreground text-center">No approved feedback yet.</p>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {approvedFeedback.slice(0, 5).map((item, index) => (
+                  <Card
+                    key={item.id}
+                    className="p-4 bg-card/30 backdrop-blur-sm border-border/50 animate-slide-up"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="font-semibold">{item.is_anonymous ? "Anonymous" : "Community Member"}</p>
+                      <div className="flex">
+                        {Array.from({ length: item.rating }).map((_, i) => (
+                          <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{item.feedback}</p>
-                </Card>
-              ))}
-            </div>
+                    <p className="text-sm font-medium mb-1">{item.subject}</p>
+                    <p className="text-sm text-muted-foreground">{item.message}</p>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

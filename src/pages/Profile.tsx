@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import { Edit, Mail, Calendar, Award, TrendingUp } from "lucide-react";
+import { Mail, Calendar, Award, TrendingUp } from "lucide-react";
+import { EditProfileDialog } from "@/components/EditProfileDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 
@@ -97,10 +98,10 @@ const Profile = () => {
                   </div>
                 </div>
               </div>
-              <Button variant="outline" className="border-primary/50 hover:bg-primary/10">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Profile
-              </Button>
+              <EditProfileDialog 
+                currentName={displayName}
+                currentAvatarUrl={profile.avatar_url}
+              />
             </div>
 
             {/* Level Progress */}
@@ -138,7 +139,7 @@ const Profile = () => {
             {/* Skills Section */}
             <div className="lg:col-span-2 space-y-6">
               <div>
-                <h2 className="text-2xl font-bold mb-4">Skills & Competencies</h2>
+                <h2 className="text-2xl font-bold mb-4">Confidence Levels</h2>
                 <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
                   <div className="space-y-6">
                     {skills.map((skill, index) => (

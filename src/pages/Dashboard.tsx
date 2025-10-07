@@ -12,7 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useProjects } from "@/hooks/useProjects";
 import { useBadges } from "@/hooks/useBadges";
-import { useSkills } from "@/hooks/useSkills";
+import { useConfidence } from "@/hooks/useConfidence";
+import { NewProjectDialog } from "@/components/NewProjectDialog";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -20,7 +21,7 @@ const Dashboard = () => {
   const { profile } = useProfile();
   const { projects, isLoading: projectsLoading } = useProjects();
   const { badges, isLoading: badgesLoading } = useBadges();
-  const { skills, isLoading: skillsLoading } = useSkills();
+  const { confidence, isLoading: confidenceLoading } = useConfidence();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -28,7 +29,7 @@ const Dashboard = () => {
     }
   }, [user, loading, navigate]);
 
-  if (loading || projectsLoading || badgesLoading || skillsLoading) {
+  if (loading || projectsLoading || badgesLoading || confidenceLoading) {
     return (
       <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center">
         <p className="text-lg">Loading...</p>
@@ -115,19 +116,19 @@ const Dashboard = () => {
               </div>
 
               <div>
-                <h2 className="text-2xl font-bold mb-4">Skill Levels</h2>
+                <h2 className="text-2xl font-bold mb-4">Confidence Levels</h2>
                 <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
-                  {skills.length === 0 ? (
-                    <p className="text-muted-foreground text-center">No skills tracked yet.</p>
+                  {confidence.length === 0 ? (
+                    <p className="text-muted-foreground text-center">No confidence levels tracked yet.</p>
                   ) : (
                     <div className="space-y-6">
-                      {skills.map((skill) => (
-                        <div key={skill.id} className="space-y-2">
+                      {confidence.map((item) => (
+                        <div key={item.id} className="space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span className="font-medium">{skill.name}</span>
-                            <span className="text-muted-foreground">{skill.level}%</span>
+                            <span className="font-medium">{item.name}</span>
+                            <span className="text-muted-foreground">{item.level}%</span>
                           </div>
-                          <Progress value={skill.level} className="h-2" />
+                          <Progress value={item.level} className="h-2" />
                         </div>
                       ))}
                     </div>
@@ -160,10 +161,7 @@ const Dashboard = () => {
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     Mark Task Complete
                   </Button>
-                  <Button variant="outline" className="w-full justify-start border-border/50">
-                    <Target className="mr-2 h-4 w-4" />
-                    Start New Project
-                  </Button>
+                  <NewProjectDialog />
                 </div>
               </Card>
             </div>

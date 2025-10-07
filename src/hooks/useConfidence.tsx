@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-export interface Skill {
+export interface Confidence {
   id: string;
   user_id: string;
   name: string;
@@ -13,34 +13,34 @@ export interface Skill {
   updated_at: string;
 }
 
-export const useSkills = () => {
+export const useConfidence = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: skills, isLoading } = useQuery({
-    queryKey: ['user_skills', user?.id],
+  const { data: confidence, isLoading } = useQuery({
+    queryKey: ['confidence', user?.id],
     queryFn: async () => {
       if (!user) return [];
       
       const { data, error } = await supabase
-        .from('user_skills')
+        .from('user_confidence')
         .select('*')
         .eq('user_id', user.id)
         .order('name');
 
       if (error) throw error;
-      return data as Skill[];
+      return data as Confidence[];
     },
     enabled: !!user,
   });
 
-  const updateSkill = useMutation({
+  const updateConfidence = useMutation({
     mutationFn: async ({ id, level }: { id: string; level: number }) => {
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase
-        .from('user_skills')
+        .from('user_confidence')
         .update({ level })
         .eq('id', id)
         .eq('user_id', user.id);
@@ -48,10 +48,10 @@ export const useSkills = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user_skills', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['confidence', user?.id] });
       toast({
         title: "Success",
-        description: "Skill updated successfully",
+        description: "Confidence level updated successfully",
       });
     },
     onError: (error) => {
@@ -64,8 +64,8 @@ export const useSkills = () => {
   });
 
   return {
-    skills: skills || [],
+    confidence: confidence || [],
     isLoading,
-    updateSkill: updateSkill.mutate,
+    updateConfidence: updateConfidence.mutate,
   };
 };
