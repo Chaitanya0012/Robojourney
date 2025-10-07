@@ -12,8 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useProjects } from "@/hooks/useProjects";
 import { useBadges } from "@/hooks/useBadges";
-import { useConfidence } from "@/hooks/useConfidence";
 import { NewProjectDialog } from "@/components/NewProjectDialog";
+import { useConfidence } from "@/hooks/useConfidence";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();

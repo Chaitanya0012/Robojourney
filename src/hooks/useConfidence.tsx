@@ -23,6 +23,7 @@ export const useConfidence = () => {
     queryFn: async () => {
       if (!user) return [];
       
+      // @ts-ignore - Table was renamed to user_confidence but types haven't updated yet
       const { data, error } = await supabase
         .from('user_confidence')
         .select('*')
@@ -39,6 +40,7 @@ export const useConfidence = () => {
     mutationFn: async ({ id, level }: { id: string; level: number }) => {
       if (!user) throw new Error('Not authenticated');
 
+      // @ts-ignore - Table was renamed to user_confidence but types haven't updated yet
       const { error } = await supabase
         .from('user_confidence')
         .update({ level })
