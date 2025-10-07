@@ -10,7 +10,7 @@ export interface Project {
   description: string | null;
   progress: number;
   icon: string | null;
-  color: string;
+  color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -65,36 +65,9 @@ export const useProjects = () => {
     },
   });
 
-  const createProject = useMutation({
-    mutationFn: async (newProject: Omit<Project, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
-      if (!user) throw new Error('Not authenticated');
-
-      const { error } = await supabase
-        .from('projects')
-        .insert([{ ...newProject, user_id: user.id }]);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', user?.id] });
-      toast({
-        title: "Success",
-        description: "Project created successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   return {
     projects: projects || [],
     isLoading,
     updateProject: updateProject.mutate,
-    createProject: createProject.mutate,
   };
 };

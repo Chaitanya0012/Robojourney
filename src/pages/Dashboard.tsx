@@ -40,15 +40,18 @@ const Dashboard = () => {
     return null;
   }
 
-  const iconMap: Record<string, React.ReactNode> = {
-    target: <Target className="h-5 w-5" />,
-    cpu: <Cpu className="h-5 w-5" />,
-    code: <Code className="h-5 w-5" />,
-  };
-
   const completedProjects = projects.filter(p => p.progress === 100).length;
   const activeProjects = projects.filter(p => p.progress < 100).length;
   const earnedBadges = badges.filter(b => b.earned).length;
+  
+  const getIconComponent = (iconName: string | null) => {
+    switch (iconName) {
+      case 'target': return Target;
+      case 'cpu': return Cpu;
+      case 'code': return Code;
+      default: return Target;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-cosmic">
@@ -95,15 +98,18 @@ const Dashboard = () => {
                   </Card>
                 ) : (
                   <div className="grid gap-4">
-                    {projects.map((project) => (
-                      <ProgressCard
-                        key={project.id}
-                        title={project.title}
-                        progress={project.progress}
-                        icon={project.icon ? iconMap[project.icon] : undefined}
-                        color={project.color as "primary" | "secondary" | "success"}
-                      />
-                    ))}
+                    {projects.map((project) => {
+                      const IconComponent = getIconComponent(project.icon);
+                      return (
+                        <ProgressCard
+                          key={project.id}
+                          title={project.title}
+                          progress={project.progress}
+                          icon={<IconComponent className="h-5 w-5" />}
+                          color={(project.color as "primary" | "secondary" | "success") || "primary"}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>

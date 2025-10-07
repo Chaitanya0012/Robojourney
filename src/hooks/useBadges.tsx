@@ -7,47 +7,55 @@ export interface Badge {
   name: string;
   description: string;
   icon: string;
-  earned: boolean;
-  earned_at?: string;
+}
+
+export interface UserBadge {
+  id: string;
+  badge: Badge;
+  earned_at: string;
 }
 
 export const useBadges = () => {
   const { user } = useAuth();
 
-  const { data: badges, isLoading } = useQuery({
-    queryKey: ['badges', user?.id],
+  const { data: allBadges, isLoading: badgesLoading } = useQuery({
+    queryKey: ['badges'],
     queryFn: async () => {
-      if (!user) return [];
-
-      // Get all badges
-      const { data: allBadges, error: badgesError } = await supabase
+      const { data, error } = await supabase
         .from('badges')
         .select('*');
 
-      if (badgesError) throw badgesError;
+      if (error) throw error;
+      return data as Badge[];
+    },
+  });
 
-      // Get user's earned badges
-      const { data: userBadges, error: userBadgesError } = await supabase
+  const { data: userBadges, isLoading: userBadgesLoading } = useQuery({
+    queryKey: ['user_badges', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
         .from('user_badges')
-        .select('badge_id, earned_at')
+        .select('id, earned_at, badge:badges(*)')
         .eq('user_id', user.id);
 
-      if (userBadgesError) throw userBadgesError;
-
-      // Combine the data
-      const earnedBadgeIds = new Set(userBadges?.map(ub => ub.badge_id) || []);
-      
-      return allBadges?.map(badge => ({
-        ...badge,
-        earned: earnedBadgeIds.has(badge.id),
-        earned_at: userBadges?.find(ub => ub.badge_id === badge.id)?.earned_at,
-      })) as Badge[] || [];
+      if (error) throw error;
+      return data;
     },
     enabled: !!user,
   });
 
+  const badges = allBadges?.map(badge => {
+    const userBadge = userBadges?.find((ub: any) => ub.badge.id === badge.id);
+    return {
+      ...badge,
+      earned: !!userBadge,
+    };
+  }) || [];
+
   return {
-    badges: badges || [],
-    isLoading,
+    badges,
+    isLoading: badgesLoading || userBadgesLoading,
   };
 };

@@ -8,7 +8,7 @@ export interface Skill {
   user_id: string;
   name: string;
   level: number;
-  color: string;
+  color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -19,7 +19,7 @@ export const useSkills = () => {
   const queryClient = useQueryClient();
 
   const { data: skills, isLoading } = useQuery({
-    queryKey: ['skills', user?.id],
+    queryKey: ['user_skills', user?.id],
     queryFn: async () => {
       if (!user) return [];
       
@@ -27,7 +27,7 @@ export const useSkills = () => {
         .from('user_skills')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
+        .order('name');
 
       if (error) throw error;
       return data as Skill[];
@@ -48,36 +48,10 @@ export const useSkills = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['skills', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['user_skills', user?.id] });
       toast({
         title: "Success",
         description: "Skill updated successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const createSkill = useMutation({
-    mutationFn: async (newSkill: Omit<Skill, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
-      if (!user) throw new Error('Not authenticated');
-
-      const { error } = await supabase
-        .from('user_skills')
-        .insert([{ ...newSkill, user_id: user.id }]);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['skills', user?.id] });
-      toast({
-        title: "Success",
-        description: "Skill created successfully",
       });
     },
     onError: (error) => {
@@ -93,6 +67,5 @@ export const useSkills = () => {
     skills: skills || [],
     isLoading,
     updateSkill: updateSkill.mutate,
-    createSkill: createSkill.mutate,
   };
 };
