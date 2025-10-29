@@ -34,11 +34,14 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
     }
   };
 
-  const CardWrapper = url ? "a" : "div";
-  const cardProps = url ? { href: url, target: "_blank", rel: "noopener noreferrer" } : {};
+  const handleClick = () => {
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
-    <CardWrapper {...cardProps} className={url ? "block no-underline" : ""}>
+    <div onClick={handleClick} className={url ? "cursor-pointer" : ""}>
       <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50 transition-all hover:shadow-glow-cyan hover:border-primary/50 hover:-translate-y-1 animate-fade-in group h-full">
         <div className="flex items-start justify-between mb-3">
           <div className="text-primary group-hover:animate-glow-pulse">
@@ -71,7 +74,7 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
           </div>
         </div>
       </Card>
-    </CardWrapper>
+    </div>
   );
 };
 
