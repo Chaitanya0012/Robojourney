@@ -25,11 +25,14 @@ const Dashboard = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { profile } = useProfile();
-  const { projects, isLoading: projectsLoading } = useProjects();
+  const { projects: allProjects, isLoading: projectsLoading } = useProjects();
   const { badges, isLoading: badgesLoading } = useBadges();
   const { confidence, isLoading: confidenceLoading } = useConfidence();
   const { userXP } = useXP();
   useConfidenceInit(); // Initialize confidence levels for new users
+  
+  // Filter out 100% complete projects from dashboard
+  const projects = allProjects.filter(p => p.progress < 100);
 
   useEffect(() => {
     if (!loading && !user) {

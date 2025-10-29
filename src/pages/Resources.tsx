@@ -278,6 +278,7 @@ const Resources = () => {
                       difficulty={(resource.difficulty_level as "beginner" | "intermediate" | "advanced") || "beginner"}
                       rating={resource.avg_rating}
                       ratingCount={resource.rating_count}
+                      url={resource.url || undefined}
                     />
                     {isModerator && (
                       <Button

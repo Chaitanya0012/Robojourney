@@ -14,6 +14,7 @@ import Admin from "./pages/Admin";
 import Credits from "./pages/Credits";
 import TermsOfService from "./pages/TermsOfService";
 import AdminTerms from "./pages/AdminTerms";
+import AdminBadges from "./pages/AdminBadges";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -34,9 +35,10 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/terms" element={<AdminTerms />} />
+            <Route path="/admin/badges" element={<AdminBadges />} />
             <Route path="/credits" element={<Credits />} />
             <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/admin/terms" element={<AdminTerms />} />
             <Route path="/auth" element={<Auth />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

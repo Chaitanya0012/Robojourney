@@ -4,7 +4,7 @@ import Navigation from "@/components/Navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, CheckCircle, Star, Clock } from "lucide-react";
+import { Shield, CheckCircle, Star, Clock, Award } from "lucide-react";
 import { useFeedback } from "@/hooks/useFeedback";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -50,12 +50,18 @@ const Admin = () => {
       <Navigation />
       <div className="pt-24 pb-12 px-4">
         <div className="container mx-auto max-w-6xl">
-          <div className="mb-8 animate-slide-up">
-            <div className="inline-flex p-3 rounded-full bg-primary/10 text-primary mb-4">
-              <Shield className="h-8 w-8" />
+          <div className="mb-8 flex justify-between items-start animate-slide-up">
+            <div>
+              <div className="inline-flex p-3 rounded-full bg-primary/10 text-primary mb-4">
+                <Shield className="h-8 w-8" />
+              </div>
+              <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
+              <p className="text-muted-foreground">Manage feedback and moderate content</p>
             </div>
-            <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage feedback and moderate content</p>
+            <Button onClick={() => navigate('/admin/badges')} className="gap-2 hover-lift animate-glow-pulse">
+              <Award className="h-4 w-4" />
+              Manage Badges
+            </Button>
           </div>
 
           {/* Stats Cards */}

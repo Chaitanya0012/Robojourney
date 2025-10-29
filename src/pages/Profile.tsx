@@ -8,11 +8,19 @@ import { Mail, Calendar, Award } from "lucide-react";
 import { EditProfileDialog } from "@/components/EditProfileDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { useProjects } from "@/hooks/useProjects";
+import { EditProjectDialog } from "@/components/EditProjectDialog";
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Profile = () => {
   const { user, loading: authLoading } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
+  const { projects: allProjects, updateProject } = useProjects();
   const navigate = useNavigate();
+  
+  // Show only completed projects (100%)
+  const completedProjects = allProjects.filter(p => p.progress === 100);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -117,6 +125,45 @@ const Profile = () => {
           <p className="text-sm text-muted-foreground text-center mb-8 p-4 bg-card/30 rounded-lg border border-border/50">
             💡 <strong>Earn XP</strong> by completing projects, earning badges, and participating in robotics activities. Level up as you gain more experience!
           </p>
+
+          {/* Completed Projects */}
+          {completedProjects.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-4">🏆 Completed Projects</h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {completedProjects.map((project) => (
+                  <Card key={project.id} className="p-6 bg-card/50 backdrop-blur-sm border-primary/30 hover:shadow-glow-cyan transition-all group">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold mb-2">{project.title}</h3>
+                        {project.description && (
+                          <p className="text-sm text-muted-foreground mb-3">{project.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 text-sm text-success">
+                          <Award className="h-4 w-4" />
+                          <span className="font-medium">100% Complete</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <EditProjectDialog project={project} />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm("Delete this project?")) {
+                              updateProject({ id: project.id, updates: { progress: 0 } });
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="text-center">
             <Card className="p-12 bg-card/50 backdrop-blur-sm border-border/50">
