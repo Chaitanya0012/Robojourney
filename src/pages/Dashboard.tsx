@@ -15,6 +15,11 @@ import { useBadges } from "@/hooks/useBadges";
 import { NewProjectDialog } from "@/components/NewProjectDialog";
 import { useConfidence } from "@/hooks/useConfidence";
 import { EditProjectDialog } from "@/components/EditProjectDialog";
+import { XPWidget } from "@/components/XPWidget";
+import { XPLevelDisplay } from "@/components/XPLevelDisplay";
+import { useXP } from "@/hooks/useXP";
+import { useConfidenceInit } from "@/hooks/useConfidenceInit";
+import { ConfidenceManager } from "@/components/ConfidenceManager";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -23,6 +28,8 @@ const Dashboard = () => {
   const { projects, isLoading: projectsLoading } = useProjects();
   const { badges, isLoading: badgesLoading } = useBadges();
   const { confidence, isLoading: confidenceLoading } = useConfidence();
+  const { userXP } = useXP();
+  useConfidenceInit(); // Initialize confidence levels for new users
 
   useEffect(() => {
     if (!loading && !user) {
@@ -122,28 +129,23 @@ const Dashboard = () => {
 
               <div>
                 <h2 className="text-2xl font-bold mb-4">Confidence Levels</h2>
-                <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
-                  {confidence.length === 0 ? (
-                    <p className="text-muted-foreground text-center">No confidence levels tracked yet.</p>
-                  ) : (
-                    <div className="space-y-6">
-                      {confidence.map((item) => (
-                        <div key={item.id} className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">{item.name}</span>
-                            <span className="text-muted-foreground">{item.level}%</span>
-                          </div>
-                          <Progress value={item.level} className="h-2" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
+                <ConfidenceManager />
               </div>
             </div>
 
-            {/* Right Column - Badges & Quick Actions */}
+            {/* Right Column - XP, Badges & Quick Actions */}
             <div className="space-y-6">
+              {/* XP Widget */}
+              <XPWidget />
+
+              {/* Level Display */}
+              {userXP && (
+                <XPLevelDisplay 
+                  totalXP={userXP.total_xp} 
+                  currentLevel={userXP.current_level}
+                />
+              )}
+
               <div>
                 <h2 className="text-2xl font-bold mb-4">Achievements</h2>
                 {badges.length === 0 ? (

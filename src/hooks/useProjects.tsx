@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useXP, XP_REWARDS } from '@/hooks/useXP';
 
 export interface Project {
   id: string;
@@ -22,6 +23,7 @@ export const useProjects = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { addXP } = useXP();
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects', user?.id],
@@ -44,6 +46,7 @@ export const useProjects = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Project> }) => {
       if (!user) throw new Error('Not authenticated');
 
+      const oldProject = projects?.find(p => p.id === id);
       const { error } = await supabase
         .from('projects')
         .update(updates)
@@ -51,6 +54,15 @@ export const useProjects = () => {
         .eq('user_id', user.id);
 
       if (error) throw error;
+      
+      // Award XP if project completed
+      if (oldProject && oldProject.progress < 100 && updates.progress === 100) {
+        addXP({
+          activityType: 'finish_project',
+          xpAmount: XP_REWARDS.finish_project,
+          description: `Completed project: ${oldProject.title}`,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', user?.id] });

@@ -8,12 +8,14 @@ import { Shield, CheckCircle, Star, Clock } from "lucide-react";
 import { useFeedback } from "@/hooks/useFeedback";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useProjects } from "@/hooks/useProjects";
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { feedback, approveFeedback, isLoading } = useFeedback();
   const { isModerator, isLoading: roleLoading } = useUserRole();
+  const { projects } = useProjects();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -41,6 +43,7 @@ const Admin = () => {
 
   const pendingFeedback = feedback.filter(f => !f.is_approved);
   const approvedFeedback = feedback.filter(f => f.is_approved);
+  const projectsNeedingHelp = projects.filter(p => p.help_request && p.help_request.trim() !== '');
 
   return (
     <div className="min-h-screen bg-gradient-cosmic">
@@ -88,6 +91,45 @@ const Admin = () => {
                 <CheckCircle className="h-8 w-8 text-green-500" />
               </div>
             </Card>
+          </div>
+
+          {/* Projects Needing Help */}
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              🆘 Help Requests ({projectsNeedingHelp.length})
+            </h2>
+            {projectsNeedingHelp.length === 0 ? (
+              <Card className="p-6 bg-card/50 backdrop-blur-sm border-border/50">
+                <p className="text-muted-foreground text-center">No help requests at the moment</p>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {projectsNeedingHelp.map((project, index) => (
+                  <Card
+                    key={project.id}
+                    className="p-6 bg-card/30 backdrop-blur-sm border-amber-500/50 animate-slide-up"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold mb-2">{project.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          <strong>Help Request:</strong> {project.help_request}
+                        </p>
+                        {project.description && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            <strong>Project Description:</strong> {project.description}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Progress: {project.progress}% • Created: {new Date(project.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Pending Feedback */}

@@ -25,14 +25,17 @@ import { useResources } from "@/hooks/useResources";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
+import { useXP, XP_REWARDS } from "@/hooks/useXP";
 
 const Resources = () => {
   const { user } = useAuth();
   const { resources, isLoading, createResource, deleteResource } = useResources();
   const { isModerator } = useUserRole();
   const { toast } = useToast();
+  const { addXP } = useXP();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [confidenceFilter, setConfidenceFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [newResource, setNewResource] = useState({
     title: "",
@@ -49,7 +52,8 @@ const Resources = () => {
     const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (resource.description || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || resource.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesConfidence = confidenceFilter === "all" || resource.category === confidenceFilter;
+    return matchesSearch && matchesCategory && matchesConfidence;
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -83,7 +87,12 @@ const Resources = () => {
     }
 
     createResource(newResource);
-    setNewResource({ 
+    addXP({
+      activityType: 'create_resource',
+      xpAmount: XP_REWARDS.create_resource,
+      description: `Created resource: ${newResource.title}`,
+    });
+    setNewResource({
       title: "", 
       description: "", 
       category: "Programming", 
@@ -233,6 +242,19 @@ const Resources = () => {
                   <SelectItem value="Electronics">Electronics</SelectItem>
                   <SelectItem value="AI">AI</SelectItem>
                   <SelectItem value="Mechanical">Mechanical</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
+                <SelectTrigger className="w-48 bg-card/50 border-border/50">
+                  <SelectValue placeholder="Confidence Area" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Areas</SelectItem>
+                  <SelectItem value="Programming">Programming</SelectItem>
+                  <SelectItem value="Electronics">Electronics</SelectItem>
+                  <SelectItem value="Mechanical">Mechanical</SelectItem>
+                  <SelectItem value="Design">Design</SelectItem>
                 </SelectContent>
               </Select>
             </div>

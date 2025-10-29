@@ -80,6 +80,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          confidence_visible: boolean | null
           created_at: string | null
           email: string | null
           email_visible: boolean | null
@@ -88,6 +89,7 @@ export type Database = {
           joined_at: string | null
           level: number | null
           looking_for_partner: boolean | null
+          profile_visibility: string | null
           project_description: string | null
           projects_count: number | null
           rank: number | null
@@ -98,6 +100,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          confidence_visible?: boolean | null
           created_at?: string | null
           email?: string | null
           email_visible?: boolean | null
@@ -106,6 +109,7 @@ export type Database = {
           joined_at?: string | null
           level?: number | null
           looking_for_partner?: boolean | null
+          profile_visibility?: string | null
           project_description?: string | null
           projects_count?: number | null
           rank?: number | null
@@ -116,6 +120,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          confidence_visible?: boolean | null
           created_at?: string | null
           email?: string | null
           email_visible?: boolean | null
@@ -124,6 +129,7 @@ export type Database = {
           joined_at?: string | null
           level?: number | null
           looking_for_partner?: boolean | null
+          profile_visibility?: string | null
           project_description?: string | null
           projects_count?: number | null
           rank?: number | null
@@ -382,6 +388,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_xp: {
+        Row: {
+          created_at: string
+          current_level: number
+          id: string
+          total_xp: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_level?: number
+          id?: string
+          total_xp?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_level?: number
+          id?: string
+          total_xp?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      xp_activities: {
+        Row: {
+          activity_type: string
+          created_at: string
+          description: string | null
+          id: string
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          user_id: string
+          xp_earned: number
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       mentor_analytics: {
@@ -399,9 +459,18 @@ export type Database = {
         Row: {
           avg_rating: number | null
           category: string | null
+          created_at: string | null
+          description: string | null
+          difficulty_level: string | null
+          file_url: string | null
           id: string | null
+          image_url: string | null
+          is_approved: boolean | null
           rating_count: number | null
+          resource_type: string | null
           title: string | null
+          updated_at: string | null
+          url: string | null
           user_id: string | null
         }
         Relationships: []

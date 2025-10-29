@@ -1,0 +1,124 @@
+{
+  "xp_rewards": {
+    "watch_video": 100,
+    "complete_activity": 200,
+    "finish_project": 1000,
+    "pass_quiz": 500,
+    "upload_document": 300,
+    "help_others": 150,
+    "create_resource": 250,
+    "rate_resource": 50,
+    "update_confidence": 75,
+    "daily_login": 100
+  },
+  "levels": [
+    {
+      "level": 1,
+      "xp": 0,
+      "title": "Novice Robot Builder"
+    },
+    {
+      "level": 2,
+      "xp": 500,
+      "title": "Mechanic Apprentice"
+    },
+    {
+      "level": 3,
+      "xp": 1500,
+      "title": "Sensor Specialist"
+    },
+    {
+      "level": 4,
+      "xp": 3000,
+      "title": "Circuit Master"
+    },
+    {
+      "level": 5,
+      "xp": 6000,
+      "title": "Robotics Engineer"
+    },
+    {
+      "level": 6,
+      "xp": 12000,
+      "title": "AI Programmer"
+    },
+    {
+      "level": 7,
+      "xp": 25000,
+      "title": "Automation Architect"
+    },
+    {
+      "level": 8,
+      "xp": 50000,
+      "title": "Robotics Innovator"
+    },
+    {
+      "level": 9,
+      "xp": 100000,
+      "title": "Cybernetic Creator"
+    },
+    {
+      "level": 10,
+      "xp": 250000,
+      "title": "Grand Robotics Master"
+    }
+  ],
+  "badges": [
+    {
+      "id": "first_spark",
+      "name": "⚙️ First Spark",
+      "description": "Complete your first activity",
+      "tier": "bronze",
+      "icon": "⚙️"
+    },
+    {
+      "id": "power_up",
+      "name": "🔋 Power Up",
+      "description": "Earn 1,000 XP",
+      "tier": "bronze",
+      "icon": "🔋"
+    },
+    {
+      "id": "builder",
+      "name": "🤖 Builder",
+      "description": "Finish 3 projects",
+      "tier": "silver",
+      "icon": "🤖"
+    },
+    {
+      "id": "innovator",
+      "name": "🧠 Innovator",
+      "description": "Build an autonomous robot",
+      "tier": "silver",
+      "icon": "🧠"
+    },
+    {
+      "id": "space_engineer",
+      "name": "🛰️ Space Engineer",
+      "description": "Use sensors + motors",
+      "tier": "gold",
+      "icon": "🛰️"
+    },
+    {
+      "id": "streak_master",
+      "name": "🔥 Streak Master",
+      "description": "Log in for 7 days in a row",
+      "tier": "gold",
+      "icon": "🔥"
+    },
+    {
+      "id": "mastermind",
+      "name": "🌞 Mastermind",
+      "description": "Earn 100,000 XP",
+      "tier": "platinum",
+      "icon": "🌞"
+    },
+    {
+      "id": "legend",
+      "name": "🏆 Legend",
+      "description": "Mentor or share an open-source bot",
+      "tier": "platinum",
+      "icon": "🏆"
+    }
+  ]
+}
