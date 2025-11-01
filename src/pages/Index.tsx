@@ -11,14 +11,7 @@ import { useCollaboration } from "@/hooks/useCollaboration";
 
 const Index = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { collaborations, isLoading } = useCollaboration();
-
-  useEffect(() => {
-    if (user) {
-      navigate("/dashboard");
-    }
-  }, [user, navigate]);
 
   const features = [
     {
