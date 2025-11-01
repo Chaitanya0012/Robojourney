@@ -15,6 +15,7 @@ import Credits from "./pages/Credits";
 import TermsOfService from "./pages/TermsOfService";
 import AdminTerms from "./pages/AdminTerms";
 import AdminBadges from "./pages/AdminBadges";
+import Quiz from "./pages/Quiz";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/resources" element={<Resources />} />
+            <Route path="/quiz" element={<Quiz />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/analytics" element={<Analytics />} />
