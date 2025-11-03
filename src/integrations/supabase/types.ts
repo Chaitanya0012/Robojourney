@@ -107,6 +107,54 @@ export type Database = {
         }
         Relationships: []
       }
+      lessons: {
+        Row: {
+          category: string
+          content: string
+          created_at: string | null
+          description: string | null
+          difficulty: string
+          estimated_time: number | null
+          id: string
+          learning_objectives: Json | null
+          level: number
+          order_index: number
+          prerequisites: Json | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string | null
+          description?: string | null
+          difficulty: string
+          estimated_time?: number | null
+          id?: string
+          learning_objectives?: Json | null
+          level?: number
+          order_index?: number
+          prerequisites?: Json | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string
+          estimated_time?: number | null
+          id?: string
+          learning_objectives?: Json | null
+          level?: number
+          order_index?: number
+          prerequisites?: Json | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -503,6 +551,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_lesson_progress: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          lesson_id: string
+          time_spent: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          lesson_id: string
+          time_spent?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          lesson_id?: string
+          time_spent?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_lesson_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
