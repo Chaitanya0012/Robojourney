@@ -4,7 +4,6 @@ import { Physics } from "@react-three/cannon";
 import { DifferentialRobot } from "./DifferentialRobot";
 import { Obstacle } from "./Obstacle";
 import { Telemetry } from "@/hooks/useSimulator";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
 interface SimulatorCanvasProps {
   telemetry: Telemetry;
@@ -94,11 +93,6 @@ export const SimulatorCanvas = ({ telemetry }: SimulatorCanvasProps) => {
           maxDistance={15}
           maxPolarAngle={Math.PI / 2.1}
         />
-        
-        {/* Bloom for glowing effects */}
-        <EffectComposer>
-          <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.9} intensity={0.5} />
-        </EffectComposer>
       </Canvas>
       
       {/* Corner overlay labels */}
