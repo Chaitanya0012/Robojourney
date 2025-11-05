@@ -33,18 +33,16 @@ export const DifferentialRobot = ({ telemetry }: DifferentialRobotProps) => {
   const rotationRef = useRef(0);
 
   // Update physics based on motor commands
-  useFrame(() => {
-    if (!bodyApi.velocity || !bodyApi.angularVelocity) return;
-    
+  useFrame((state, delta) => {
     const { left, right } = velocityRef.current;
     
     // Differential drive kinematics
     const wheelCircumference = 2 * Math.PI * wheelRadius;
-    const linearVelocity = ((left + right) / 2) * wheelCircumference; // meters per second
+    const linearVelocity = ((left + right) / 2) * wheelCircumference;
     const angularVelocity = ((right - left) * wheelCircumference) / wheelBase;
 
     // Update rotation
-    rotationRef.current += angularVelocity * 0.016; // Approximate delta time
+    rotationRef.current += angularVelocity * delta;
 
     // Apply velocity in world coordinates
     const forwardX = Math.sin(rotationRef.current) * linearVelocity;
