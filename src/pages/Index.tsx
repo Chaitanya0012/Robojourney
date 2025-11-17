@@ -8,10 +8,12 @@ import { Zap, Target, Users, TrendingUp, Sparkles, Rocket, Mail, ArrowRight, Sta
 import heroImage from "@/assets/hero-robotics.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePlatformStats } from "@/hooks/usePlatformStats";
 
 const Index = () => {
   const { user } = useAuth();
   const { collaborations, isLoading } = useCollaboration();
+  const { stats: platformStats } = usePlatformStats();
 
   const features = [
     {
@@ -100,17 +102,23 @@ const Index = () => {
               {/* Trust indicators */}
               <div className="flex items-center gap-8 pt-8">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-primary">500+</div>
+                  <div className="text-3xl font-bold text-primary">
+                    {platformStats?.totalLearners || 0}
+                  </div>
                   <div className="text-sm text-muted-foreground">Active Learners</div>
                 </div>
                 <div className="h-12 w-px bg-border/50" />
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-secondary">1000+</div>
+                  <div className="text-3xl font-bold text-secondary">
+                    {platformStats?.totalProjects || 0}
+                  </div>
                   <div className="text-sm text-muted-foreground">Projects Built</div>
                 </div>
                 <div className="h-12 w-px bg-border/50" />
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-accent">50+</div>
+                  <div className="text-3xl font-bold text-accent">
+                    {platformStats?.totalResources || 0}
+                  </div>
                   <div className="text-sm text-muted-foreground">Resources</div>
                 </div>
               </div>
