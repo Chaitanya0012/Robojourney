@@ -1,100 +1,210 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 
-const TOKENS = {
-  bg: "bg-gradient-to-br from-[#0f1724] via-[#0f1728] to-[#071126]",
-  card: "bg-white/5 backdrop-blur-md",
-};
+interface QuizQuestion {
+  id: string;
+  articleId: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  difficulty: string;
+}
 
-const THEORY_SECTIONS = [
-  {
-    id: "fundamentals",
-    title: "Fundamentals: Signals, Units, and Basic Electronics",
-    description: "Start here to understand voltage, current, resistance, and basic signal types (analog vs digital).",
-    topics: ["Voltage & Current", "Ohm's Law", "Analog vs Digital","Basic Passive Components"],
-  },
-  {
-    id: "sensors",
-    title: "Sensors: How Robots Perceive the World",
-    description: "Covers common sensors used in robotics — ultrasonic, IR, LDR, temperature sensors.",
-    topics: ["Ultrasonic", "IR", "LDR", "Temperature"],
-  },
-];
+interface Article {
+  id: string;
+  title: string;
+  content: string;
+  wrong_vs_right: { wrong: string; right: string };
+}
 
-const QUESTIONS = [
-  {
-    id: "q_f_1",
-    stage: 0,
-    category: "Fundamentals",
-    question: "Which quantity describes the flow of electric charge through a wire?",
-    options: ["Voltage", "Resistance", "Current", "Power"],
-    correctIndex: 2,
-    difficulty: "Easy",
-    article: {
-      title: "Current — the flow of charge",
-      content: "Current (I) is the rate of charge flow measured in amperes (A). In simple circuits, Ohm's law V = IR links voltage (V), current (I), and resistance (R).\n\nOther options: Voltage is potential difference (V), Resistance is opposition to current (Ω), Power is energy per time (W).",
-    },
-  },
-  {
-    id: "q_s_1",
-    stage: 1,
-    category: "Sensors",
-    question: "An ultrasonic sensor measures distance by:",
-    options: ["Measuring light reflection", "Timing echo of sound pulses", "Measuring resistance change", "Detecting magnetic fields"],
-    correctIndex: 1,
-    difficulty: "Easy",
-    article: {
-      title: "How ultrasonic sensors measure distance",
-      content: "Ultrasonic sensors send high-frequency (typically 40 kHz) pulses and listen for echoes. Distance = (time_of_flight × speed_of_sound) / 2.",
-    },
-  },
-];
-
-const difficultyScore = (d: string) => (d === "Easy" ? 1 : d === "Medium" ? 2 : 3);
-const defaultStats = () => ({ xp: 0, level: 0, correct: 0, incorrect: 0, streak: 0, perCategory: {} });
+const defaultStats = () => ({ xp: 0, correct: 0, incorrect: 0, streak: 0 });
 
 export default function QuizAdvanced() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const articleId = searchParams.get('article');
+
   const [stats, setStats] = useState(defaultStats);
-  const [showTheory, setShowTheory] = useState(true);
-  const [currentQ, setCurrentQ] = useState<typeof QUESTIONS[0] | null>(null);
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showArticle, setShowArticle] = useState(false);
+  const [article, setArticle] = useState<Article | null>(null);
+
+  useEffect(() => {
+    const bankRaw = localStorage.getItem('robotics_generated_quiz_bank');
+    const articlesRaw = localStorage.getItem('robotics_basic_articles');
+    
+    if (bankRaw && articlesRaw) {
+      const bank: QuizQuestion[] = JSON.parse(bankRaw);
+      const articles: Article[] = JSON.parse(articlesRaw);
+      
+      if (articleId) {
+        const filtered = bank.filter(q => q.articleId === articleId);
+        setQuestions(filtered);
+        const foundArticle = articles.find(a => a.id === articleId);
+        setArticle(foundArticle || null);
+      } else {
+        setQuestions(bank);
+      }
+    }
+  }, [articleId]);
+
+  const currentQ = questions[currentIndex];
 
   const handleAnswer = (idx: number) => {
     if (!currentQ || feedback) return;
     const correct = idx === currentQ.correctIndex;
     setSelected(idx);
     setFeedback(correct ? "correct" : "incorrect");
-    setStats(st => ({ ...st, xp: st.xp + (correct ? 10 : 0), correct: st.correct + (correct ? 1 : 0), incorrect: st.incorrect + (correct ? 0 : 1) }));
+    setStats(st => ({ 
+      ...st, 
+      xp: st.xp + (correct ? 10 : 0), 
+      correct: st.correct + (correct ? 1 : 0), 
+      incorrect: st.incorrect + (correct ? 0 : 1),
+      streak: correct ? st.streak + 1 : 0
+    }));
+    setTimeout(() => setShowArticle(true), 400);
   };
 
+  const nextQuestion = () => {
+    setShowArticle(false);
+    setSelected(null);
+    setFeedback(null);
+    
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(i => i + 1);
+    } else {
+      navigate('/quiz-dashboard');
+    }
+  };
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">No questions found</h2>
+            <button onClick={() => navigate('/quiz-dashboard')} className="px-6 py-3 rounded-full bg-primary text-primary-foreground">
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-cosmic">
+    <div className="min-h-screen bg-background">
       <Navigation />
-      <div className={`${TOKENS.bg} min-h-screen p-6 text-white`}>
+      <div className="min-h-screen p-6 text-foreground">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-4">Robotics Quiz</h1>
-          {showTheory && (
-            <motion.div className="p-6 rounded-2xl bg-white/5">
-              <h2 className="text-lg font-semibold">{THEORY_SECTIONS[0].title}</h2>
-              <p className="text-sm text-slate-300 mt-2">{THEORY_SECTIONS[0].description}</p>
-              <button onClick={() => { setShowTheory(false); setCurrentQ(QUESTIONS[0]); }} className="mt-4 px-4 py-2 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400">
-                Start Practice
-              </button>
-            </motion.div>
+          {article && (
+            <div className="mb-6 p-4 rounded-xl bg-card border border-border">
+              <h2 className="text-xl font-bold">{article.title}</h2>
+              <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{article.content}</p>
+            </div>
           )}
-          {!showTheory && currentQ && (
-            <motion.div className="p-6 rounded-2xl bg-white/5">
-              <h3 className="text-xl">{currentQ.question}</h3>
-              <div className="mt-4 grid gap-3">
-                {currentQ.options.map((opt, i) => (
-                  <button key={i} onClick={() => handleAnswer(i)} className={`px-4 py-3 rounded-xl ${selected === i ? 'bg-primary' : 'bg-white/10'}`}>
-                    {opt}
-                  </button>
-                ))}
-              </div>
-              {feedback && <div className="mt-4 p-4 bg-white/10 rounded-xl">{currentQ.article.content}</div>}
+
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-muted-foreground">
+              Question {currentIndex + 1} of {questions.length}
+            </div>
+            <div className="flex gap-4 text-sm">
+              <div>XP: {stats.xp}</div>
+              <div>Streak: {stats.streak}</div>
+              <div className="text-green-500">✓ {stats.correct}</div>
+              <div className="text-red-500">✗ {stats.incorrect}</div>
+            </div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {currentQ && (
+              <motion.div 
+                key={currentQ.id} 
+                initial={{ opacity: 0, y: 12 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -12 }}
+                className="p-6 rounded-2xl bg-card border border-border shadow-lg"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">{currentQ.difficulty}</div>
+                    <h3 className="text-xl font-medium">{currentQ.question}</h3>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-3">
+                  {currentQ.options.map((opt, i) => {
+                    const isSel = selected === i;
+                    const isCorrect = currentQ.correctIndex === i;
+                    const showResult = feedback;
+                    
+                    let className = "w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all border ";
+                    if (showResult) {
+                      if (isCorrect) {
+                        className += "border-green-500 bg-green-500/10";
+                      } else if (isSel) {
+                        className += "border-red-500 bg-red-500/10";
+                      } else {
+                        className += "border-border bg-card opacity-50";
+                      }
+                    } else {
+                      className += isSel 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border bg-card hover:border-primary/50";
+                    }
+
+                    return (
+                      <motion.button 
+                        key={i}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleAnswer(i)}
+                        className={className}
+                        disabled={!!feedback}
+                      >
+                        <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                          {String.fromCharCode(65 + i)}
+                        </div>
+                        <div className="flex-1 text-left">{opt}</div>
+                        {showResult && isCorrect && (
+                          <div className="text-sm text-green-500 font-medium">✓</div>
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {feedback && (
+                  <div className="mt-6 flex items-center justify-between">
+                    <div className={`text-sm font-medium ${feedback === 'correct' ? 'text-green-500' : 'text-red-500'}`}>
+                      {feedback === 'correct' ? '✓ Correct!' : '✗ Incorrect'}
+                    </div>
+                    <button 
+                      onClick={nextQuestion}
+                      className="px-6 py-2 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                    >
+                      {currentIndex < questions.length - 1 ? 'Next Question' : 'Finish'}
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {showArticle && currentQ && (
+            <motion.div 
+              initial={{ opacity: 0, y: 8 }} 
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-4 rounded-xl bg-card border border-border"
+            >
+              <h4 className="font-semibold mb-2">Explanation</h4>
+              <p className="text-sm text-muted-foreground">{currentQ.explanation}</p>
             </motion.div>
           )}
         </div>
