@@ -79,14 +79,18 @@ export const useQuiz = () => {
   });
 
   const submitAttempt = useMutation({
-    mutationFn: async (attempt: QuizAttempt) => {
+    mutationFn: async (attempt: QuizAttempt & { category?: string }) => {
       if (!user) throw new Error("Must be logged in");
 
       const { error } = await supabase
         .from('quiz_attempts')
         .insert([{
           user_id: user.id,
-          ...attempt
+          question_id: attempt.question_id,
+          selected_answer: attempt.selected_answer,
+          is_correct: attempt.is_correct,
+          xp_earned: attempt.xp_earned,
+          time_taken: attempt.time_taken,
         }]);
       
       if (error) throw error;
@@ -107,6 +111,8 @@ export const useQuiz = () => {
       queryClient.invalidateQueries({ queryKey: ['quiz-stats', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['quiz-streak', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['user-xp', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['spaced-repetition-due', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['error-patterns', user?.id] });
     },
     onError: (error) => {
       console.error('Error submitting quiz attempt:', error);

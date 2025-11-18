@@ -263,6 +263,50 @@ export type Database = {
         }
         Relationships: []
       }
+      question_error_patterns: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          incorrect_count: number | null
+          last_incorrect: string | null
+          needs_review: boolean | null
+          question_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          incorrect_count?: number | null
+          last_incorrect?: string | null
+          needs_review?: boolean | null
+          question_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          incorrect_count?: number | null
+          last_incorrect?: string | null
+          needs_review?: boolean | null
+          question_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_error_patterns_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quiz_attempts: {
         Row: {
           created_at: string | null
@@ -463,6 +507,86 @@ export type Database = {
         }
         Relationships: []
       }
+      skill_assessments: {
+        Row: {
+          assessment_type: string
+          category: string
+          completed_at: string | null
+          id: string
+          result_level: string
+          score: number | null
+          user_id: string
+        }
+        Insert: {
+          assessment_type: string
+          category: string
+          completed_at?: string | null
+          id?: string
+          result_level: string
+          score?: number | null
+          user_id: string
+        }
+        Update: {
+          assessment_type?: string
+          category?: string
+          completed_at?: string | null
+          id?: string
+          result_level?: string
+          score?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      spaced_repetition_items: {
+        Row: {
+          consecutive_correct: number | null
+          created_at: string | null
+          ease_factor: number | null
+          id: string
+          interval_days: number | null
+          last_reviewed: string | null
+          next_review_date: string
+          question_id: string
+          repetitions: number | null
+          total_attempts: number | null
+          user_id: string
+        }
+        Insert: {
+          consecutive_correct?: number | null
+          created_at?: string | null
+          ease_factor?: number | null
+          id?: string
+          interval_days?: number | null
+          last_reviewed?: string | null
+          next_review_date?: string
+          question_id: string
+          repetitions?: number | null
+          total_attempts?: number | null
+          user_id: string
+        }
+        Update: {
+          consecutive_correct?: number | null
+          created_at?: string | null
+          ease_factor?: number | null
+          id?: string
+          interval_days?: number | null
+          last_reviewed?: string | null
+          next_review_date?: string
+          question_id?: string
+          repetitions?: number | null
+          total_attempts?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spaced_repetition_items_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       terms_of_service: {
         Row: {
           content: string
@@ -610,6 +734,33 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_skill_levels: {
+        Row: {
+          assessed_at: string | null
+          category: string
+          id: string
+          last_updated: string | null
+          skill_level: string
+          user_id: string
+        }
+        Insert: {
+          assessed_at?: string | null
+          category: string
+          id?: string
+          last_updated?: string | null
+          skill_level: string
+          user_id: string
+        }
+        Update: {
+          assessed_at?: string | null
+          category?: string
+          id?: string
+          last_updated?: string | null
+          skill_level?: string
           user_id?: string
         }
         Relationships: []
