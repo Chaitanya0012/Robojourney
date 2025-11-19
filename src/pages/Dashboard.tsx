@@ -20,6 +20,7 @@ import { XPLevelDisplay } from "@/components/XPLevelDisplay";
 import { useXP } from "@/hooks/useXP";
 import { useConfidenceInit } from "@/hooks/useConfidenceInit";
 import { ConfidenceManager } from "@/components/ConfidenceManager";
+import { ReviewPrompt } from "@/components/ReviewPrompt";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -68,6 +69,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-cosmic">
       <Navigation />
+      <ReviewPrompt />
       <div className="pt-24 pb-12 px-4">
         <div className="container mx-auto">
           {/* Header */}

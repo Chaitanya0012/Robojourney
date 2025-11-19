@@ -33,6 +33,7 @@ interface QuizQuestion {
 
 export default function ArticleLearning() {
   const [selectedArticle, setSelectedArticle] = useState<Lesson | null>(null);
+  const [showQuiz, setShowQuiz] = useState(false);
   const [completedArticles, setCompletedArticles] = useState<Set<string>>(new Set());
 
   const { data: lessons, isLoading: lessonsLoading } = useQuery({
@@ -76,7 +77,13 @@ export default function ArticleLearning() {
       setCompletedArticles(prev => new Set([...prev, selectedArticle.id]));
       toast.success(`Completed: ${selectedArticle.title}`);
       setSelectedArticle(null);
+      setShowQuiz(false);
     }
+  };
+
+  const handleBackToArticles = () => {
+    setSelectedArticle(null);
+    setShowQuiz(false);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -89,6 +96,41 @@ export default function ArticleLearning() {
   };
 
   if (selectedArticle) {
+    if (showQuiz) {
+      return (
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <div className="container mx-auto px-4 py-8 max-w-4xl">
+            <Button
+              variant="ghost"
+              className="mb-6"
+              onClick={() => setShowQuiz(false)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Article
+            </Button>
+            
+            {questionsLoading ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">Loading questions...</p>
+              </Card>
+            ) : questions && questions.length > 0 ? (
+              <ArticleQuizCard
+                article={selectedArticle}
+                questions={questions}
+                onComplete={handleArticleComplete}
+              />
+            ) : (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground mb-4">No quiz questions available for this article yet.</p>
+                <Button onClick={handleBackToArticles}>Back to Articles</Button>
+              </Card>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
@@ -96,27 +138,42 @@ export default function ArticleLearning() {
           <Button
             variant="ghost"
             className="mb-6"
-            onClick={() => setSelectedArticle(null)}
+            onClick={handleBackToArticles}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Articles
           </Button>
           
-          {questionsLoading ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">Loading questions...</p>
-            </Card>
-          ) : questions && questions.length > 0 ? (
-            <ArticleQuizCard
-              article={selectedArticle}
-              questions={questions}
-              onComplete={handleArticleComplete}
-            />
-          ) : (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">No questions available for this article yet.</p>
-            </Card>
-          )}
+          <Card className="p-8">
+            <div className="mb-6">
+              <Badge className={getDifficultyColor(selectedArticle.difficulty)} variant="secondary">
+                {selectedArticle.difficulty}
+              </Badge>
+              <h1 className="text-3xl font-bold mt-4 mb-2">{selectedArticle.title}</h1>
+              <p className="text-muted-foreground">Article {selectedArticle.order_index} · {selectedArticle.category}</p>
+            </div>
+            
+            <div className="prose prose-slate dark:prose-invert max-w-none mb-8">
+              <div className="whitespace-pre-wrap">{selectedArticle.content}</div>
+            </div>
+
+            <div className="flex gap-4 pt-6 border-t">
+              <Button 
+                onClick={() => setShowQuiz(true)} 
+                size="lg"
+                className="flex-1"
+              >
+                Start Quiz
+              </Button>
+              <Button 
+                onClick={handleBackToArticles} 
+                variant="outline"
+                size="lg"
+              >
+                Back to Articles
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
     );
