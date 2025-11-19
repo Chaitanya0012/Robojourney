@@ -507,6 +507,39 @@ export type Database = {
         }
         Relationships: []
       }
+      robotics_articles: {
+        Row: {
+          category: string
+          content: string
+          created_at: string | null
+          difficulty_level: string
+          id: string
+          order_index: number
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string | null
+          difficulty_level: string
+          id?: string
+          order_index: number
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string | null
+          difficulty_level?: string
+          id?: string
+          order_index?: number
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       skill_assessments: {
         Row: {
           assessment_type: string
