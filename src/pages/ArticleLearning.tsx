@@ -53,7 +53,7 @@ export default function ArticleLearning() {
     },
   });
 
-  const { data: questions } = useQuery({
+  const { data: questions, isLoading: questionsLoading } = useQuery({
     queryKey: ['article-questions', selectedArticle?.title],
     enabled: !!selectedArticle,
     queryFn: async () => {
@@ -88,7 +88,7 @@ export default function ArticleLearning() {
     }
   };
 
-  if (selectedArticle && questions) {
+  if (selectedArticle) {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
@@ -102,11 +102,21 @@ export default function ArticleLearning() {
             Back to Articles
           </Button>
           
-          <ArticleQuizCard
-            article={selectedArticle}
-            questions={questions}
-            onComplete={handleArticleComplete}
-          />
+          {questionsLoading ? (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">Loading questions...</p>
+            </Card>
+          ) : questions && questions.length > 0 ? (
+            <ArticleQuizCard
+              article={selectedArticle}
+              questions={questions}
+              onComplete={handleArticleComplete}
+            />
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">No questions available for this article yet.</p>
+            </Card>
+          )}
         </div>
       </div>
     );
