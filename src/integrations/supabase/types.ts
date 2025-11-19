@@ -414,6 +414,123 @@ export type Database = {
         }
         Relationships: []
       }
+      rag_articles: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          level: string
+          order_index: number
+          tags: string[] | null
+          title: string
+          topic: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          level: string
+          order_index: number
+          tags?: string[] | null
+          title: string
+          topic: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          level?: string
+          order_index?: number
+          tags?: string[] | null
+          title?: string
+          topic?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      rag_components: {
+        Row: {
+          common_issues: string[] | null
+          component_type: string
+          created_at: string | null
+          description: string
+          id: string
+          name: string
+          related_topics: string[] | null
+          specifications: Json | null
+          updated_at: string | null
+          usage_tips: string[] | null
+        }
+        Insert: {
+          common_issues?: string[] | null
+          component_type: string
+          created_at?: string | null
+          description: string
+          id?: string
+          name: string
+          related_topics?: string[] | null
+          specifications?: Json | null
+          updated_at?: string | null
+          usage_tips?: string[] | null
+        }
+        Update: {
+          common_issues?: string[] | null
+          component_type?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          name?: string
+          related_topics?: string[] | null
+          specifications?: Json | null
+          updated_at?: string | null
+          usage_tips?: string[] | null
+        }
+        Relationships: []
+      }
+      rag_troubleshooting: {
+        Row: {
+          category: string
+          common_causes: string[] | null
+          created_at: string | null
+          diagnostic_steps: Json
+          difficulty_level: string
+          id: string
+          problem: string
+          related_components: string[] | null
+          solutions: Json
+          symptoms: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          common_causes?: string[] | null
+          created_at?: string | null
+          diagnostic_steps: Json
+          difficulty_level: string
+          id?: string
+          problem: string
+          related_components?: string[] | null
+          solutions: Json
+          symptoms?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          common_causes?: string[] | null
+          created_at?: string | null
+          diagnostic_steps?: Json
+          difficulty_level?: string
+          id?: string
+          problem?: string
+          related_components?: string[] | null
+          solutions?: Json
+          symptoms?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       resource_ratings: {
         Row: {
           created_at: string
