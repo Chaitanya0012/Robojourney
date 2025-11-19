@@ -21,6 +21,7 @@ import AdaptiveLearning from "./pages/AdaptiveLearning";
 import ArticleLearning from "./pages/ArticleLearning";
 import Learn from "./pages/Learn";
 import Simulator from "./pages/Simulator";
+import Tutor from "./pages/Tutor";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/learn" element={<ArticleLearning />} />
             <Route path="/learning-path" element={<Learn />} />
             <Route path="/simulator" element={<Simulator />} />
+            <Route path="/tutor" element={<Tutor />} />
             <Route path="/quiz" element={<QuizAdvanced />} />
             <Route path="/quiz-dashboard" element={<QuizDashboard />} />
             <Route path="/adaptive-learning" element={<AdaptiveLearning />} />
