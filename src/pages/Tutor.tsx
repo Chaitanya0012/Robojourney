@@ -22,7 +22,12 @@ export default function Tutor() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSend = async () => {
-    if (!input.trim() || !user) return;
+    if (!input.trim()) return;
+    
+    if (!user) {
+      toast.error("Please sign in to use the AI Tutor");
+      return;
+    }
 
     const userMessage: Message = { role: "user", content: input };
     setMessages(prev => [...prev, userMessage]);
@@ -73,7 +78,13 @@ export default function Tutor() {
             <h2 className="text-2xl font-bold mb-4">Chat with AI Tutor</h2>
             
             <ScrollArea className="flex-1 pr-4 mb-4">
-              {messages.length === 0 ? (
+              {!user ? (
+                <div className="text-center text-muted-foreground py-8">
+                  <Brain className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg font-semibold mb-2">Sign in to use AI Tutor</p>
+                  <p className="text-sm">Please log in to chat with the AI tutor and get personalized help.</p>
+                </div>
+              ) : messages.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
                   <Brain className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>Ask me anything about robotics!</p>
@@ -122,9 +133,10 @@ export default function Tutor() {
               />
               <Button
                 onClick={handleSend}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || !user}
                 size="icon"
                 className="shrink-0"
+                title={!user ? "Sign in to use AI Tutor" : "Send message"}
               >
                 <Send className="h-4 w-4" />
               </Button>
