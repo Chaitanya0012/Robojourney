@@ -28,28 +28,53 @@ serve(async (req) => {
     let searchTerms: string[] = [];
     const inputText = (prompt || question || '').toLowerCase();
     
-    // Common robotics keywords to search for
-    const keywordMatches = inputText.match(/\b(motor|sensor|ultrasonic|servo|stepper|arduino|circuit|led|resistor|breadboard|power|battery|gear|encoder|driver|actuator|microcontroller|programming|debugging|h-bridge|pwm|analog|digital|voltage|current|wiring|multimeter|imu|gyroscope|accelerometer)\b/g);
+    // Enhanced keyword extraction - both specific terms and broader topics
+    const keywordMatches = inputText.match(/\b(motor|sensor|ultrasonic|servo|stepper|arduino|circuit|led|resistor|breadboard|power|battery|gear|encoder|driver|actuator|microcontroller|programming|debugging|h-bridge|pwm|analog|digital|voltage|current|wiring|multimeter|imu|gyroscope|accelerometer|bluetooth|wifi|wireless|communication|i2c|spi|uart|serial|lcd|display|button|switch|potentiometer|joystick|buzzer|speaker|relay|transistor|diode|capacitor|inductor|soldering|pcb|schematic|ground|vcc|gnd|pin|output|input)\b/g);
     if (keywordMatches) {
       searchTerms = [...new Set(keywordMatches)] as string[];
     }
 
     console.log('RAG Search terms:', searchTerms);
 
+    // Get user's weak topics from SRS to personalize context
+    let weakTopics: string[] = [];
+    if (userId) {
+      const { data: srsData } = await supabase
+        .from('question_error_patterns')
+        .select('category')
+        .eq('user_id', userId)
+        .eq('needs_review', true)
+        .limit(5);
+      
+      if (srsData && srsData.length > 0) {
+        weakTopics = [...new Set(srsData.map(d => d.category))];
+        console.log('User weak topics:', weakTopics);
+      }
+    }
+
     // Query RAG knowledge base for relevant context
     let ragContext = '';
 
-    if (searchTerms.length > 0) {
-      // Query articles for conceptual knowledge
-      const { data: articles, error: articlesError } = await supabase
+    if (searchTerms.length > 0 || weakTopics.length > 0) {
+      // Build search filter for articles - prioritize weak topics
+      let articlesQuery = supabase
         .from('rag_articles')
-        .select('title, content, topic, level')
-        .limit(2);
+        .select('title, content, topic, level, tags');
+      
+      // Use text search on topic OR tags
+      const searchPattern = [...searchTerms, ...weakTopics].join('|');
+      if (searchPattern) {
+        articlesQuery = articlesQuery.or(`topic.ilike.%${searchPattern}%,tags.cs.{${searchTerms.join(',')}}`);
+      }
+      
+      const { data: articles, error: articlesError } = await articlesQuery.limit(4);
       
       if (!articlesError && articles && articles.length > 0) {
         ragContext += '\n\n=== REFERENCE MATERIAL ===\n';
         articles.forEach(article => {
-          ragContext += `\n📚 ${article.title} (${article.level})\nTopic: ${article.topic}\n${article.content.substring(0, 600)}...\n`;
+          const isWeakTopic = weakTopics.includes(article.topic.toLowerCase());
+          const badge = isWeakTopic ? '⭐' : '📚';
+          ragContext += `\n${badge} ${article.title} (${article.level})\nTopic: ${article.topic}\n${article.content.substring(0, 500)}...\n`;
         });
       }
 
@@ -59,34 +84,49 @@ serve(async (req) => {
       );
       
       if (componentTerms.length > 0) {
+        // Use text search on component names
+        const componentPattern = componentTerms.join('|');
         const { data: components, error: componentsError } = await supabase
           .from('rag_components')
-          .select('name, description, common_issues, usage_tips')
-          .limit(2);
+          .select('name, description, common_issues, usage_tips, specifications')
+          .or(`name.ilike.%${componentPattern}%,component_type.ilike.%${componentPattern}%`)
+          .limit(3);
         
         if (!componentsError && components && components.length > 0) {
           ragContext += '\n\n=== COMPONENT INFORMATION ===\n';
           components.forEach(comp => {
             ragContext += `\n🔧 ${comp.name}\n${comp.description}\n`;
+            if (comp.specifications) {
+              ragContext += `📐 Specs: ${JSON.stringify(comp.specifications).substring(0, 150)}\n`;
+            }
             if (comp.common_issues?.length) {
               ragContext += `⚠️ Common Issues: ${comp.common_issues.slice(0, 3).join('; ')}\n`;
             }
             if (comp.usage_tips?.length) {
-              ragContext += `💡 Tips: ${comp.usage_tips.slice(0, 2).join('; ')}\n`;
+              ragContext += `💡 Tips: ${comp.usage_tips.slice(0, 3).join('; ')}\n`;
             }
           });
         }
       }
 
       // Query troubleshooting if problem-related terms mentioned
-      if (inputText.includes('not working') || inputText.includes('error') || 
+      const isProblemQuery = inputText.includes('not working') || inputText.includes('error') || 
           inputText.includes('problem') || inputText.includes('issue') || 
           inputText.includes('fix') || inputText.includes('debug') ||
-          inputText.includes('help')) {
-        const { data: troubleshooting, error: troubleshootingError } = await supabase
+          inputText.includes('help') || inputText.includes('wrong') || inputText.includes('broken');
+          
+      if (isProblemQuery) {
+        // Search troubleshooting by category or related components
+        let troubleQuery = supabase
           .from('rag_troubleshooting')
-          .select('problem, category, common_causes, diagnostic_steps')
-          .limit(2);
+          .select('problem, category, common_causes, diagnostic_steps, solutions');
+        
+        if (searchTerms.length > 0) {
+          const searchPattern = searchTerms.join('|');
+          troubleQuery = troubleQuery.or(`category.ilike.%${searchPattern}%,related_components.cs.{${searchTerms.join(',')}}`);
+        }
+        
+        const { data: troubleshooting, error: troubleshootingError } = await troubleQuery.limit(3);
         
         if (!troubleshootingError && troubleshooting && troubleshooting.length > 0) {
           ragContext += '\n\n=== TROUBLESHOOTING GUIDES ===\n';
@@ -102,20 +142,34 @@ serve(async (req) => {
 
     console.log('RAG context length:', ragContext.length, 'characters');
 
-    let systemPrompt = `You are a friendly, expert robotics tutor for smart 6th graders. Your goal is to help students understand robotics concepts clearly and fix their mistakes with patience and encouragement.
+    // Build enhanced system prompt with personalization
+    const personalization = weakTopics.length > 0 
+      ? `\n\n🎯 STUDENT CONTEXT: This student needs extra support with: ${weakTopics.join(', ')}. Provide additional encouragement and detail in these areas.`
+      : '';
 
-${ragContext ? 'Use the following reference material from the robotics knowledge base to provide accurate, detailed answers:' + ragContext : ''}
+    let systemPrompt = `You are an expert robotics tutor helping a 6th grade student learn robotics and engineering. Your teaching style is:
+- Patient, encouraging, and enthusiastic
+- Focused on hands-on learning and experimentation
+- Clear explanations with real-world examples
+- Step-by-step problem-solving approach
 
-Guidelines:
-- Be warm and encouraging
-- Use simple language suitable for 6th graders
-- Break down complex concepts into numbered steps
-- Use analogies and real-world examples when helpful
-- Point out specific mistakes kindly and explain WHY they occurred
-- When available, reference the knowledge base material above
-- Provide concrete, practical next steps
-- Suggest hands-on experiments when appropriate
-- Keep explanations concise but thorough (aim for 3-5 paragraphs)`;
+${ragContext ? `📚 KNOWLEDGE BASE CONTEXT:\n${ragContext}\n` : ''}${personalization}
+
+🎓 TEACHING GUIDELINES:
+1. **Language**: Use 6th grade level vocabulary. Define technical terms simply.
+2. **Structure**: Break complex topics into 3-4 bite-sized steps
+3. **Examples**: Relate concepts to everyday objects (toys, kitchen appliances, sports)
+4. **Debugging**: Ask 2-3 diagnostic questions before suggesting solutions
+5. **Encouragement**: Celebrate attempts and normalize mistakes as learning opportunities
+6. **Safety**: Always mention safety when relevant (electricity, sharp tools, hot parts)
+7. **Experiments**: Suggest simple tests they can do to verify understanding
+8. **Citations**: Reference specific knowledge base articles when used (e.g., "According to our Power Systems guide...")
+
+⚠️ IMPORTANT:
+- If information isn't in the knowledge base, say "I don't have that specific information, but here's what I know..."
+- Never make up technical specifications or component details
+- When unsure, guide them to test and observe rather than guess
+- Keep responses concise (3-5 paragraphs) but thorough`;
 
     let userPrompt = "";
 
