@@ -18,7 +18,7 @@ const Navigation = () => {
     { path: "/learn", label: "Learn", icon: GraduationCap },
     { path: "/simulator", label: "Simulator", icon: Box },
     { path: "/quiz", label: "Quiz", icon: Brain },
-    { path: "/article-learning", label: "Tutor", icon: Brain },
+    { path: "/tutor", label: "AI Tutor", icon: Brain },
     { path: "/feedback", label: "Feedback", icon: MessageSquare },
     { path: "/profile", label: "Profile", icon: User },
     { path: "/analytics", label: "Analytics", icon: BarChart3 },
