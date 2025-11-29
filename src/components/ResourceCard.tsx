@@ -49,9 +49,24 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
       </div>
       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
       {url && (
-        <div className="mb-4 p-3 bg-muted/50 rounded-md border border-border/50">
-          <p className="text-xs text-muted-foreground mb-1">Copy and paste this link in your browser:</p>
-          <p className="text-sm font-mono break-all select-all">"{url}"</p>
+        <div className="mb-4 p-3 bg-muted/50 rounded-md border border-border/50 space-y-2">
+          <p className="text-xs text-muted-foreground">Trusted external link</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-primary hover:underline break-all"
+            >
+              {url}
+            </a>
+            <Button asChild size="sm" variant="secondary" className="group">
+              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center">
+                <ExternalLink className="h-4 w-4 mr-1 group-hover:animate-glow-pulse" />
+                Open
+              </a>
+            </Button>
+          </div>
         </div>
       )}
         {ratingCount > 0 && (
