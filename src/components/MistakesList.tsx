@@ -31,6 +31,7 @@ export const MistakesList = () => {
           userAnswer: "N/A",
           correctAnswer: mistake.quiz_questions?.correct_answer,
           explanation: mistake.quiz_questions?.explanation,
+          prompt: "Guide the student with questions and hints instead of giving the answer outright."
         }
       });
 
@@ -53,7 +54,10 @@ export const MistakesList = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-tutor', {
-        body: { mistakes: errorPatterns }
+        body: {
+          mistakes: errorPatterns,
+          prompt: "Offer a plan with guiding questions and reflective prompts so the student can self-correct recurring mistakes."
+        }
       });
 
       if (error) throw error;
