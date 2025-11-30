@@ -8,6 +8,7 @@ import { TelemetryPanel } from "@/components/simulator/TelemetryPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSimulator } from "@/hooks/useSimulator";
 
 const defaultCode = `// Arduino-style robot code\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);\n  pinMode(2, OUTPUT); // Motor A\n  pinMode(3, OUTPUT); // Motor B\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  setMotor(0.5, 0.5);\n  await sleep(500);\n  digitalWrite(LED_BUILTIN, HIGH);\n  Serial.println("Moving forward");\n}`;
@@ -26,19 +27,13 @@ type Diagnostics = {
 };
 
 const boardPresets = {
-  "arduino-uno": { name: "Arduino Uno", label: "ATmega328P", lanes: 12, color: "from-emerald-500/30 to-cyan-500/30" },
-  "arduino-nano": { name: "Arduino Nano", label: "ATmega4809", lanes: 10, color: "from-blue-500/30 to-indigo-500/30" },
-  esp32: { name: "ESP32 DevKit", label: "Xtensa LX6", lanes: 18, color: "from-amber-500/30 to-orange-500/30" },
+  "arduino-uno": { name: "Arduino Uno", label: "ATmega328P", lanes: 12, color: "from-emerald-500/60 to-slate-900" },
+  "arduino-nano": { name: "Arduino Nano", label: "ATmega4809", lanes: 10, color: "from-blue-500/60 to-slate-900" },
+  esp32: { name: "ESP32 DevKit", label: "Xtensa LX6", lanes: 14, color: "from-indigo-500/60 to-slate-900" },
 };
 
 const analogPinLabels = ["A0", "A1", "A2", "A3", "A4", "A5"];
 const powerAndAnalogPins = ["5V", "3V3", "GND", "VIN", ...analogPinLabels];
-
-const boardPresets = {
-  "arduino-uno": { label: "Arduino Uno", name: "Arduino Uno", lanes: 12, color: "from-emerald-500/60 to-slate-900" },
-  "arduino-nano": { label: "Arduino Nano", name: "Arduino Nano", lanes: 10, color: "from-blue-500/60 to-slate-900" },
-  esp32: { label: "ESP32 DevKit", name: "ESP32 DevKit", lanes: 14, color: "from-indigo-500/60 to-slate-900" },
-};
 
 type BoardKey = keyof typeof boardPresets;
 
@@ -409,7 +404,6 @@ const Simulator = () => {
                   {isRunning ? "Running" : compileStatus.state === "error" ? "Build errors" : compileStatus.state === "ok" ? "Validated" : "Idle"}
                 </div>
               </div>
-            </div>
 
               <div className="space-y-2 text-sm">
                 {diagnostics.errors.length === 0 ? (
@@ -431,17 +425,7 @@ const Simulator = () => {
                     <Radio className="mt-0.5 h-4 w-4" />
                     <span>{warn}</span>
                   </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          <Card className="p-6 glass-card space-y-4">
-            <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-primary" />
-              <div>
-                <h2 className="text-lg font-semibold">AI Tutor</h2>
-                <p className="text-xs text-muted-foreground">Guidance for debugging your sketch.</p>
+                ))}
               </div>
             </Card>
 

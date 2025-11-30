@@ -3,6 +3,7 @@ interface CodeEditorProps {
   onChange: (value: string) => void;
   readOnly?: boolean;
   placeholder?: string;
+  language?: string;
 }
 
 export const CodeEditor = ({ value, onChange, readOnly = false, language = "javascript" }: CodeEditorProps) => {
