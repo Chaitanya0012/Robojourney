@@ -564,6 +564,37 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Trust Section */}
+      <section className="py-24 px-4 relative">
+        <div className="container mx-auto">
+          <div className="text-center mb-14 space-y-4">
+            <div className="inline-block px-4 py-2 glass-card rounded-full">
+              <span className="text-sm font-medium text-primary">Built for real progress</span>
+            </div>
+            <h2 className="text-5xl font-bold">Why learners stick with RoboJourney</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              We combine community, coaching, and a transparent XP system so you always know what to do next.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {trustSignals.map((signal, index) => (
+              <Card
+                key={signal.title}
+                className="p-8 glass-card glow-border hover-lift animate-scale-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="inline-flex p-4 rounded-2xl premium-gradient mb-5">
+                  <signal.icon className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="text-2xl font-semibold mb-2">{signal.title}</h3>
+                <p className="text-muted-foreground leading-relaxed">{signal.description}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Final CTA Section - Premium */}
       <section className="py-32 px-4 relative">
         <div className="container mx-auto">
