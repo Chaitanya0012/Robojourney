@@ -44,13 +44,22 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
           {type}
         </Badge>
       </div>
+      {type.toLowerCase() === 'video' && (
+        <div className="mb-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs text-foreground">
+          Please copy this video link into your browser to view it. Title and description are shown here because embedded playback isn't available.
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-2">
         <h3 className="text-lg font-semibold flex-1">{title}</h3>
       </div>
       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
       {url && (
         <div className="mb-4 p-3 bg-muted/50 rounded-md border border-border/50 space-y-2">
-          <p className="text-xs text-muted-foreground">Trusted external link</p>
+          <p className="text-xs text-muted-foreground">
+            {type.toLowerCase() === 'video'
+              ? 'Copy and paste this link in a new tab to watch the video'
+              : 'Trusted external link'}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <a
               href={url}
