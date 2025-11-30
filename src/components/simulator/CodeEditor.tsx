@@ -1,5 +1,4 @@
-import Editor from "@monaco-editor/react";
-import { useTheme } from "next-themes";
+import { ChangeEvent } from "react";
 
 interface CodeEditorProps {
   value: string;
@@ -8,32 +7,19 @@ interface CodeEditorProps {
   language?: string;
 }
 
-export const CodeEditor = ({ value, onChange, readOnly = false, language = "javascript" }: CodeEditorProps) => {
-  const { theme } = useTheme();
+export const CodeEditor = ({ value, onChange, readOnly = false }: CodeEditorProps) => {
+  const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(event.target.value);
+  };
 
   return (
-    <div className="h-[450px] border border-border/50 rounded-md overflow-hidden bg-background/95 backdrop-blur shadow-glow-cyan/20">
-      <Editor
-        height="100%"
-        defaultLanguage={language}
+    <div className="h-[450px] rounded-md overflow-hidden border border-border/50 bg-background/95 shadow-glow-cyan/20">
+      <textarea
         value={value}
-        onChange={(value) => onChange(value || "")}
-        theme={theme === "dark" ? "vs-dark" : "light"}
-        options={{
-          readOnly,
-          minimap: { enabled: false },
-          fontSize: 14,
-          lineNumbers: "on",
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          tabSize: 2,
-          fontFamily: "'Fira Code', 'JetBrains Mono', 'Consolas', monospace",
-          fontLigatures: true,
-          cursorBlinking: "smooth",
-          cursorSmoothCaretAnimation: "on",
-          smoothScrolling: true,
-          padding: { top: 16, bottom: 16 },
-        }}
+        onChange={handleChange}
+        readOnly={readOnly}
+        className="h-full w-full resize-none bg-transparent p-4 font-mono text-sm text-foreground outline-none"
+        spellCheck={false}
       />
     </div>
   );
