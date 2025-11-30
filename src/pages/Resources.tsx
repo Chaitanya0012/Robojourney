@@ -29,7 +29,9 @@ import { useXP, XP_REWARDS } from "@/hooks/useXP";
 
 const Resources = () => {
   const { user } = useAuth();
-  const { resources, isLoading, createResource, deleteResource } = useResources();
+  const { resources, isLoading, createResource, deleteResource, approveResource } = useResources({
+    includePending: isModerator,
+  });
   const { isModerator } = useUserRole();
   const { toast } = useToast();
   const { addXP } = useXP();
@@ -48,7 +50,11 @@ const Resources = () => {
     resource_type: "article",
   });
 
-  const filteredResources = resources.filter((resource) => {
+  const approvedResources = resources.filter((resource) => resource.is_approved);
+  const pendingResources = resources.filter((resource) => !resource.is_approved);
+  const baseResources = isModerator ? approvedResources : resources;
+
+  const filteredResources = baseResources.filter((resource) => {
     const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (resource.description || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || resource.category === categoryFilter;
@@ -68,15 +74,6 @@ const Resources = () => {
       return;
     }
 
-    if (!isModerator) {
-      toast({
-        title: "Error", 
-        description: "Only moderators can add resources",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!newResource.title.trim()) {
       toast({
         title: "Error",
@@ -86,23 +83,44 @@ const Resources = () => {
       return;
     }
 
-    createResource(newResource);
-    addXP({
-      activityType: 'create_resource',
-      xpAmount: XP_REWARDS.create_resource,
-      description: `Created resource: ${newResource.title}`,
-    });
-    setNewResource({
-      title: "", 
-      description: "", 
-      category: "Programming", 
-      url: "", 
-      file_url: null, 
-      image_url: null,
-      difficulty_level: "beginner",
-      resource_type: "article",
-    });
-    setOpen(false);
+    createResource(newResource)
+      .then(() => {
+        addXP({
+          activityType: 'create_resource',
+          xpAmount: XP_REWARDS.create_resource,
+          description: `Submitted resource: ${newResource.title}`,
+        });
+        setNewResource({
+          title: "",
+          description: "",
+          category: "Programming",
+          url: "",
+          file_url: null,
+          image_url: null,
+          difficulty_level: "beginner",
+          resource_type: "article",
+        });
+        toast({
+          title: "Submitted for approval",
+          description: "An admin will review and approve this resource before it is public.",
+        });
+        setOpen(false);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  };
+
+  const handleApprove = async (resourceId: string) => {
+    try {
+      await approveResource(resourceId);
+    } catch (error: any) {
+      toast({
+        title: "Error", 
+        description: error.message || "Failed to approve resource", 
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -113,9 +131,12 @@ const Resources = () => {
           <div className="mb-8 animate-slide-up flex justify-between items-start">
             <div>
               <h1 className="text-4xl font-bold mb-2">Resource Hub</h1>
-              <p className="text-muted-foreground">Explore curated tutorials, guides, and tools to enhance your learning</p>
+              <p className="text-muted-foreground">
+                Explore curated tutorials, guides, and tools to enhance your learning. Learners can share links and the admin will
+                publish them once approved.
+              </p>
             </div>
-            {user && isModerator && (
+            {user && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button>
@@ -126,7 +147,9 @@ const Resources = () => {
                 <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add a New Resource</DialogTitle>
-                    <DialogDescription>Share a learning resource with the community</DialogDescription>
+                    <DialogDescription>
+                      Share a learning resource with the community. Submissions stay hidden until an admin approves them.
+                    </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -279,6 +302,7 @@ const Resources = () => {
                       rating={resource.avg_rating}
                       ratingCount={resource.rating_count}
                       url={resource.url || undefined}
+                      isApproved={resource.is_approved}
                     />
                     {isModerator && (
                       <Button
@@ -300,6 +324,46 @@ const Resources = () => {
                 </div>
               )}
             </>
+          )}
+
+          {isModerator && pendingResources.length > 0 && (
+            <div className="mt-12 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-semibold">Pending approvals</h3>
+                <p className="text-sm text-muted-foreground">
+                  Review student submissions and approve the ones that fit.
+                </p>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pendingResources.map((resource) => (
+                  <div key={resource.id} className="relative group">
+                    <ResourceCard
+                      title={resource.title}
+                      description={resource.description || ""}
+                      category={resource.category}
+                      type={resource.resource_type || "Resource"}
+                      difficulty={(resource.difficulty_level as "beginner" | "intermediate" | "advanced") || "beginner"}
+                      rating={resource.avg_rating}
+                      ratingCount={resource.rating_count}
+                      url={resource.url || undefined}
+                      isApproved={resource.is_approved}
+                    />
+                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="sm" variant="secondary" onClick={() => handleApprove(resource.id)}>
+                        Approve
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => deleteResource(resource.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -24,18 +24,25 @@ export interface ResourceWithStats extends Resource {
   avg_rating: number;
 }
 
-export const useResources = () => {
+export const useResources = (options: { includePending?: boolean } = {}) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const includePending = options.includePending || false;
 
   const { data: resources, isLoading } = useQuery({
     queryKey: ['resources'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('resource_stats')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (!includePending) {
+        query = query.eq('is_approved', true);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as ResourceWithStats[];
@@ -48,7 +55,7 @@ export const useResources = () => {
 
       const { error } = await supabase
         .from('resources')
-        .insert({ ...newResource, user_id: user.id, is_approved: true });
+        .insert({ ...newResource, user_id: user.id, is_approved: false });
 
       if (error) throw error;
     },
@@ -98,7 +105,16 @@ export const useResources = () => {
   return {
     resources: resources || [],
     isLoading,
-    createResource: createResource.mutate,
+    createResource: createResource.mutateAsync,
+    approveResource: async (resourceId: string) => {
+      const { error } = await supabase.from('resources').update({ is_approved: true }).eq('id', resourceId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      toast({
+        title: "Resource approved",
+        description: "The resource is now visible to learners",
+      });
+    },
     deleteResource: deleteResource.mutate,
   };
 };

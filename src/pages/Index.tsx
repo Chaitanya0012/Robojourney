@@ -18,6 +18,7 @@ const Index = () => {
 
   const [planInput, setPlanInput] = useState("");
   const [trainingConsent, setTrainingConsent] = useState(false);
+  const [planStatus, setPlanStatus] = useState<string | null>(null);
   const [dailyPlan, setDailyPlan] = useState([
     {
       title: "Warm up with a quick quiz",
@@ -85,6 +86,8 @@ const Index = () => {
         action: () => navigate("/simulator"),
       },
     ]);
+    setPlanStatus(`Navigation plan ready for "${trimmed}". Tap any queued action to jump in.`);
+    setPlanInput("");
   };
 
   return (
@@ -229,6 +232,7 @@ const Index = () => {
                   </button>
                   <span className="text-muted-foreground">Toggle whether your activity trains the LLM.</span>
                 </div>
+                {planStatus && <p className="text-sm text-primary/80">{planStatus}</p>}
               </div>
               <Card className="p-4 border-dashed border-primary/30 bg-primary/5">
                 <p className="text-sm text-muted-foreground mb-3">Autopilot queue</p>

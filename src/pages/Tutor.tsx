@@ -21,6 +21,10 @@ export default function Tutor() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const buildTutorPrompt = (question: string) => `You are a Socratic robotics tutor. Do not give direct answers. Instead, restate the student's goal, ask one or two guiding questions, and suggest what part of their approach to check next. Keep the tone encouraging.
+
+Student message: ${question}`;
+
   const handleSend = async () => {
     if (!input.trim()) return;
     
@@ -36,10 +40,11 @@ export default function Tutor() {
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-tutor', {
-        body: { 
-          prompt: input,
+        body: {
+          prompt: buildTutorPrompt(input),
           userId: user.id,
-          action: 'chat'
+          action: 'chat',
+          mode: 'socratic',
         }
       });
 

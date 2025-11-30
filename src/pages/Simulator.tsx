@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio } from "lucide-react";
+import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, AlertTriangle, Sparkles } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Editor from "@monaco-editor/react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const defaultCode = `// Arduino-style robot code
 void setup() {
@@ -49,13 +52,79 @@ const boardPresets = {
 };
 
 const Simulator = () => {
+  const { user } = useAuth();
   const [code, setCode] = useState(defaultCode);
   const [isRunning, setIsRunning] = useState(false);
   const [serialOutput, setSerialOutput] = useState<string[]>([]);
   const [ledState, setLedState] = useState(false);
   const [board, setBoard] = useState<keyof typeof boardPresets>("arduino-uno");
+  const [simErrors, setSimErrors] = useState<string[]>([]);
+  const [tutorResponse, setTutorResponse] = useState<string>("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const currentBoard = useMemo(() => boardPresets[board], [board]);
+  const usedPins = useMemo(() => {
+    const pins = new Set<string>();
+    const regex = /(pinMode|digitalWrite|analogWrite|analogRead)\s*\(\s*([^,\s\)]+)/gi;
+    const normalize = (pin: string) => {
+      const trimmed = pin.trim();
+      if (/^A\d+/i.test(trimmed)) return trimmed.toUpperCase();
+      if (/^\d+$/.test(trimmed)) return `D${trimmed}`;
+      if (trimmed.toUpperCase() === "LED_BUILTIN") return "D13";
+      return trimmed.toUpperCase();
+    };
+
+    let match;
+    while ((match = regex.exec(code))) {
+      pins.add(normalize(match[2]));
+    }
+    return pins;
+  }, [code]);
+
+  const validateSketch = (sketch: string) => {
+    const issues: string[] = [];
+    if (!sketch.includes("void setup")) issues.push("Missing setup() function");
+    if (!sketch.includes("void loop")) issues.push("Missing loop() function");
+    const braces = (sketch.match(/[\{\}]/g) || []).reduce((count, brace) => (brace === "{" ? count + 1 : count - 1), 0);
+    if (braces !== 0) issues.push("Unbalanced braces detected");
+    return issues;
+  };
+
+  const buildSimPrompt = (issues: string[], sketch: string) => `You are a Socratic robotics tutor helping a learner debug an Arduino-style sketch.
+Highlight the issues without giving the final fix. Ask 2-3 guiding questions and suggest what signals, pins, or functions to inspect next.
+
+Issues detected: ${issues.join(", ")}
+Sketch:\n${sketch}`;
+
+  const requestTutorHelp = async (issues: string[]) => {
+    if (!user) {
+      toast.error("Sign in to get AI tutor guidance");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setTutorResponse("");
+    setSimErrors(issues);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-tutor', {
+        body: {
+          prompt: buildSimPrompt(issues.length ? issues : ["No blocking errors detected"], code),
+          userId: user.id,
+          action: 'chat',
+          mode: 'socratic',
+        }
+      });
+
+      if (error) throw error;
+      setTutorResponse(data.response || "The tutor is ready to help. Try refining your code and rerun.");
+    } catch (error: any) {
+      console.error('AI tutor simulator help error:', error);
+      toast.error(error.message || "Tutor could not analyze the sketch");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   useEffect(() => {
     if (!isRunning) return;
@@ -78,7 +147,18 @@ const Simulator = () => {
     return () => clearInterval(interval);
   }, [isRunning]);
 
-  const handleRun = () => {
+  const handleRun = async () => {
+    const issues = validateSketch(code);
+    if (issues.length > 0) {
+      setSimErrors(issues);
+      setIsRunning(false);
+      setSerialOutput((prevOutput) => [...prevOutput, "⚠️ Simulation blocked: fix the sketch issues first."]);
+      await requestTutorHelp(issues);
+      return;
+    }
+
+    setSimErrors([]);
+    setTutorResponse("");
     setIsRunning((prev) => {
       const next = !prev;
       if (next) {
@@ -92,6 +172,8 @@ const Simulator = () => {
     setIsRunning(false);
     setLedState(false);
     setSerialOutput([]);
+    setSimErrors([]);
+    setTutorResponse("");
   };
 
   return (
@@ -182,7 +264,14 @@ const Simulator = () => {
                       <div className="text-white/80 text-xs mb-2">Digital Pins</div>
                       <div className="grid grid-cols-5 gap-2 text-[10px] text-white/90">
                         {[...Array(currentBoard.lanes).keys()].map((lane) => (
-                          <div key={lane} className="px-2 py-1 rounded bg-white/10 border border-white/5 text-center">
+                          <div
+                            key={lane}
+                            className={`px-2 py-1 rounded border text-center transition ${
+                              usedPins.has(`D${lane + 2}`)
+                                ? "bg-amber-200 text-black border-yellow-300 shadow-glow-cyan"
+                                : "bg-white/10 border-white/5"
+                            }`}
+                          >
                             D{lane + 2}
                           </div>
                         ))}
@@ -192,7 +281,14 @@ const Simulator = () => {
                       <div className="text-white/80 text-xs mb-2">Power & Analog</div>
                       <div className="flex flex-wrap gap-2 text-[10px] text-white/90">
                         {["5V", "3V3", "GND", "VIN", "A0", "A1", "A2", "A3", "A4", "A5"].map((label) => (
-                          <div key={label} className="px-2 py-1 rounded bg-white/10 border border-white/5">
+                          <div
+                            key={label}
+                            className={`px-2 py-1 rounded border ${
+                              usedPins.has(label)
+                                ? "bg-amber-200 text-black border-yellow-300 shadow-glow-cyan"
+                                : "bg-white/10 border-white/5"
+                            }`}
+                          >
                             {label}
                           </div>
                         ))}
@@ -206,6 +302,7 @@ const Simulator = () => {
                       <p className="text-white/80 text-xs">Toggles automatically while simulation runs</p>
                     </div>
                   </div>
+                  <p className="text-[11px] text-white/80">Highlighted pins are referenced in your sketch.</p>
                 </div>
               </div>
             </Card>
@@ -219,6 +316,41 @@ const Simulator = () => {
                   serialOutput.map((line, i) => (
                     <div key={i} className="text-green-400 mb-1">{line}</div>
                   ))
+                )}
+              </div>
+            </Card>
+
+            <Card className="p-6 glass-card space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold">AI Tutor Guidance</h2>
+                  <p className="text-xs text-muted-foreground">Guiding questions appear when the simulator spots issues.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => requestTutorHelp(validateSketch(code))}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Analyze sketch
+                </Button>
+              </div>
+              {simErrors.length > 0 && (
+                <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">We spotted some blockers:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {simErrors.map((issue, idx) => (
+                        <li key={idx}>{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+              <div className="p-3 rounded-lg border border-border/50 bg-muted/40 min-h-[80px] text-sm">
+                {isAnalyzing ? (
+                  <p className="text-muted-foreground">AI tutor is reviewing your code with guiding questions...</p>
+                ) : tutorResponse ? (
+                  <p className="whitespace-pre-wrap">{tutorResponse}</p>
+                ) : (
+                  <p className="text-muted-foreground">Run the simulator or click Analyze to get thought-provoking prompts.</p>
                 )}
               </div>
             </Card>

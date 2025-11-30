@@ -12,9 +12,20 @@ interface ResourceCardProps {
   rating?: number;
   ratingCount?: number;
   url?: string;
+  isApproved?: boolean;
 }
 
-const ResourceCard = ({ title, description, category, difficulty, type, rating = 0, ratingCount = 0, url }: ResourceCardProps) => {
+const ResourceCard = ({
+  title,
+  description,
+  category,
+  difficulty,
+  type,
+  rating = 0,
+  ratingCount = 0,
+  url,
+  isApproved = true,
+}: ResourceCardProps) => {
   const difficultyColors = {
     beginner: "bg-success/20 text-success",
     intermediate: "bg-warning/20 text-warning",
@@ -40,9 +51,12 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
         <div className="text-primary group-hover:animate-glow-pulse">
           {getTypeIcon(type)}
         </div>
-        <Badge variant="outline" className="text-xs">
-          {type}
-        </Badge>
+        <div className="flex gap-2">
+          {!isApproved && <Badge variant="destructive">Pending approval</Badge>}
+          <Badge variant="outline" className="text-xs">
+            {type}
+          </Badge>
+        </div>
       </div>
       <div className="flex items-center gap-2 mb-2">
         <h3 className="text-lg font-semibold flex-1">{title}</h3>
@@ -50,7 +64,11 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
       {url && (
         <div className="mb-4 p-3 bg-muted/50 rounded-md border border-border/50 space-y-2">
-          <p className="text-xs text-muted-foreground">Trusted external link</p>
+          <p className="text-xs text-muted-foreground">
+            {type.toLowerCase() === "video"
+              ? "Please copy this video link into your browser to view it."
+              : "Trusted external link"}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <a
               href={url}

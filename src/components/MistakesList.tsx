@@ -19,6 +19,10 @@ export const MistakesList = () => {
   const [tutorResponse, setTutorResponse] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const buildGuidedPrompt = (details: string) =>
+    `You are a Socratic robotics tutor. Use brief, guiding questions to help the student reason without giving the final answer.
+Context: ${details}`;
+
   const handleGetHelp = async (mistake: any) => {
     setSelectedMistake(mistake);
     setIsLoading(true);
@@ -27,10 +31,12 @@ export const MistakesList = () => {
     try {
       const { data, error } = await supabase.functions.invoke('ai-tutor', {
         body: {
+          prompt: buildGuidedPrompt(`Question: ${mistake.quiz_questions?.question}. Correct answer: ${mistake.quiz_questions?.correct_answer}. Explanation: ${mistake.quiz_questions?.explanation}`),
           question: mistake.quiz_questions?.question,
           userAnswer: "N/A",
           correctAnswer: mistake.quiz_questions?.correct_answer,
           explanation: mistake.quiz_questions?.explanation,
+          mode: 'socratic'
         }
       });
 
@@ -53,7 +59,7 @@ export const MistakesList = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-tutor', {
-        body: { mistakes: errorPatterns }
+        body: { mistakes: errorPatterns, prompt: buildGuidedPrompt("Analyze repeated mistakes and coach the learner.") }
       });
 
       if (error) throw error;
