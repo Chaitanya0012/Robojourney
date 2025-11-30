@@ -21,6 +21,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!supabase) {
+      console.warn('Supabase client is not configured. Skipping auth initialization.');
+      setLoading(false);
+      return;
+    }
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -41,8 +47,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    if (!supabase) {
+      const error = new Error('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
+      toast({
+        title: "Signup Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      return { error };
+    }
+
     const redirectUrl = `${window.location.origin}/dashboard`;
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -66,6 +82,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    if (!supabase) {
+      const error = new Error('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
+      toast({
+        title: "Login Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      return { error };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -83,6 +109,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    if (!supabase) {
+      const error = new Error('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({
