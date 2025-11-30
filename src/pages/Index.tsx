@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,19 +21,19 @@ import {
   Compass,
   Activity,
   MessageSquare,
+  AlertOctagon,
 } from "lucide-react";
 import heroImage from "@/assets/hero-robotics.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { usePlatformStats } from "@/hooks/usePlatformStats";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 
 const Index = () => {
   const { user } = useAuth();
   const { collaborations, isLoading } = useCollaboration();
   const { stats: platformStats } = usePlatformStats();
   const navigate = useNavigate();
+  const isLoggedIn = Boolean(user);
 
   const [planInput, setPlanInput] = useState("");
   const [trainingConsent, setTrainingConsent] = useState(false);
@@ -89,6 +90,122 @@ const Index = () => {
   };
   const [aiRoute, setAiRoute] = useState(buildAiRoute("Prototype a rover"));
   const [navigatorStatus, setNavigatorStatus] = useState<"idle" | "ready">("idle");
+
+  const navSignal = useMemo(
+    () =>
+      navigatorStatus === "ready"
+        ? "Navigator locked—pulling next steps from your mission."
+        : "Share a mission goal to warm up the AI navigator.",
+    [navigatorStatus]
+  );
+
+  const navActions = [
+    {
+      title: "Review simulator wiring",
+      eta: "6 min",
+      detail: "Open the sandbox and confirm your pin map before flashing hardware.",
+    },
+    {
+      title: "Run a calibration quiz",
+      eta: "5 min",
+      detail: "Validate understanding with a focused check-in before building.",
+    },
+    {
+      title: "Log progress to dashboard",
+      eta: "3 min",
+      detail: "Sync today's intent so XP, badges, and reminders stay aligned.",
+    },
+  ];
+
+  const navRisks = [
+    {
+      label: "Loose requirements",
+      status: "Clarify",
+      mitigation: "Add success metrics to the mission card before coding.",
+    },
+    {
+      label: "Unvalidated wiring",
+      status: "Check",
+      mitigation: "Use the simulator template to confirm pinout and power budget.",
+    },
+    {
+      label: "Skill gap",
+      status: "Coach",
+      mitigation: "Run the adaptive quiz to surface gaps and patch them fast.",
+    },
+  ];
+
+  const accelerators = [
+    {
+      title: "Navigator recipes",
+      description: "Drop in structured missions with prebuilt success criteria.",
+      badge: "Live",
+      icon: Compass,
+    },
+    {
+      title: "Contextual tutor",
+      description: "Get grounded answers that track your current project state.",
+      badge: "Context-aware",
+      icon: Brain,
+    },
+    {
+      title: "One-click simulator",
+      description: "Launch the ESP32 sandbox with pins, sensors, and serial logging ready.",
+      badge: "No hardware",
+      icon: Target,
+    },
+    {
+      title: "Safety checklists",
+      description: "Built-in wiring and power reminders before you connect real devices.",
+      badge: "Guardrails",
+      icon: ShieldCheck,
+    },
+  ];
+
+  const journeyPreview = [
+    {
+      title: "Mission briefing",
+      focus: "Planning",
+      progress: 72,
+      tags: ["Goals", "Constraints", "XP"],
+    },
+    {
+      title: "Simulator warm-up",
+      focus: "Build",
+      progress: 64,
+      tags: ["Pin map", "Serial", "Test cases"],
+    },
+    {
+      title: "Adaptive quiz",
+      focus: "Mastery",
+      progress: 58,
+      tags: ["Feedback", "Confidence", "Gaps"],
+    },
+    {
+      title: "Share recap",
+      focus: "Collaboration",
+      progress: 80,
+      tags: ["Highlights", "Next steps", "Support"],
+    },
+  ];
+
+  const trustSignals = [
+    {
+      title: "Grounded answers",
+      description: "Tutor responses pull from your mission, simulator state, and quiz history.",
+      icon: MessageSquare,
+    },
+    {
+      title: "Transparent XP",
+      description: "Every action updates your dashboard so you always know what's next.",
+      icon: Activity,
+    },
+    {
+      title: "Community-first",
+      description: "Collaboration requests are moderated and include project context up front.",
+      icon: Users,
+    },
+  ];
 
   const features = [
     {
