@@ -40,9 +40,10 @@ type BoardKey = keyof typeof boardPresets;
 const extractUsedPins = (source: string) => {
   const digitalPins = new Set<number>();
   const analogPins = new Set<string>();
+  const digitalWrites: string[] = [];
 
-  const pinCallPattern = /(pinMode|digitalWrite|analogWrite|digitalRead|analogRead)\s*\(\s*([A-Za-z0-9_]+)/g;
-  const analogLabelPattern = /A\d+/g;
+  const pinCallPattern = /(pinMode|digitalWrite|analogWrite|digitalRead|analogRead)\s*\(\s*([A-Za-z0-9_]+)/gi;
+  const analogLabelPattern = /A\d+/gi;
 
   for (const match of source.matchAll(pinCallPattern)) {
     const pinToken = match[2];
@@ -50,6 +51,7 @@ const extractUsedPins = (source: string) => {
 
     if (pinToken.toUpperCase() === "LED_BUILTIN") {
       digitalPins.add(13);
+      digitalWrites.push(pinToken);
       continue;
     }
 
@@ -61,6 +63,9 @@ const extractUsedPins = (source: string) => {
     const parsed = parseInt(pinToken, 10);
     if (!Number.isNaN(parsed)) {
       digitalPins.add(parsed);
+      if (match[1] === "digitalWrite") {
+        digitalWrites.push(pinToken);
+      }
     }
   }
 
@@ -68,7 +73,39 @@ const extractUsedPins = (source: string) => {
     analogPins.add(match[0].toUpperCase());
   }
 
-  return { digitalPins: Array.from(digitalPins).sort((a, b) => a - b), analogPins: Array.from(analogPins) };
+  return { digitalPins: Array.from(digitalPins).sort((a, b) => a - b), analogPins: Array.from(analogPins), digitalWrites };
+};
+
+const validateSketch = (
+  code: string,
+  currentBoard: BoardConfig,
+  digitalPins: number[],
+  analogPins: string[],
+) => {
+  const errors: string[] = [];
+
+  if (!/void\s+setup\s*\(/i.test(code)) {
+    errors.push("Missing setup() function to configure pins.");
+  }
+
+  if (!/void\s+loop\s*\(/i.test(code)) {
+    errors.push("Missing loop() function to run repeatedly.");
+  }
+
+  const maxDigitalPin = currentBoard.lanes + 1;
+  digitalPins.forEach((pin) => {
+    if (pin !== 13 && (pin < 2 || pin > maxDigitalPin)) {
+      errors.push(`Pin D${pin} is outside the available pins for ${currentBoard.name}.`);
+    }
+  });
+
+  analogPins.forEach((pin) => {
+    if (!analogPinLabels.includes(pin)) {
+      errors.push(`Analog pin ${pin} is not available on this board.`);
+    }
+  });
+
+  return errors;
 };
 
 const extractSerialMessages = (source: string) => {
@@ -122,18 +159,9 @@ const Simulator = () => {
       errors.push("Missing loop() or main() function to run repeatedly.");
     }
 
-    const maxDigitalPin = currentBoard.lanes + 1;
-    digitalUsedPins.forEach((pin) => {
-      if (pin !== 13 && (pin < 2 || pin > maxDigitalPin)) {
-        errors.push(`Pin D${pin} is outside the available pins for ${currentBoard.name}.`);
-      }
-    });
-
-    analogUsedPins.forEach((pin) => {
-      if (!analogPinLabels.includes(pin)) {
-        errors.push(`Analog pin ${pin} is not available on this board.`);
-      }
-    });
+    const signals: string[] = [];
+    if (compiledMessages.length > 0) signals.push("serial");
+    if (/readSensor\s*\(\s*"ultrasonic"/i.test(code)) signals.push("ultrasonic");
 
     return errors;
   }, [analogUsedPins, currentBoard, digitalUsedPins, code]);
@@ -232,7 +260,7 @@ const Simulator = () => {
                 Worker-isolated execution
               </Badge>
               <Badge variant="outline" className="bg-blue-500/10 text-blue-300">
-                LED & motor feedback
+                LED &amp; motor feedback
               </Badge>
               <Badge variant="outline" className="bg-amber-500/10 text-amber-300">
                 Syntax guardrails
@@ -403,7 +431,6 @@ const Simulator = () => {
                 >
                   {isRunning ? "Running" : compileStatus.state === "error" ? "Build errors" : compileStatus.state === "ok" ? "Validated" : "Idle"}
                 </div>
-              </div>
 
               <div className="space-y-2 text-sm">
                 {diagnostics.errors.length === 0 ? (
@@ -441,10 +468,23 @@ const Simulator = () => {
                 <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
                   Review the errors above and fix them to continue.
                 </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">Run the simulator to see guided debugging tips here.</div>
-              )}
-            </Card>
+                <p className="text-sm text-muted-foreground mb-4">
+                  When the simulator spots an issue, the AI tutor will ask guiding questions instead of giving the answer.
+                </p>
+                {isTutorAnalyzing ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    <span>AI tutor is reviewing your code...</span>
+                  </div>
+                ) : tutorGuidance ? (
+                  <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-sm whitespace-pre-wrap">
+                    {tutorGuidance}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Run the simulator to see guided debugging tips here.</div>
+                )}
+              </Card>
+            </div>
           </div>
         </div>
 
