@@ -1,165 +1,224 @@
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Warnings } from './Warnings';
-import { BestPractices } from './BestPractices';
-import { NextPriority } from './NextPriority';
-import { cn } from '../src/lib/utils';
+import React, { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Warnings from "./Warnings";
+import BestPractices from "./BestPractices";
+import NextPriority from "./NextPriority";
+import ProjectPlan, { PlanStep } from "./ProjectPlan";
+import MemoryDebug from "./MemoryDebug";
 
-type Guidance = {
+type NavigatorGuidance = {
   warnings?: string[];
   best_practices?: string[];
   meta_cognition_prompts?: string[];
   next_priority?: string;
 };
 
-export type NavigatorMessage = {
-  id: string;
-  role: 'user' | 'assistant' | 'system' | 'tool';
+type NavigatorResponse = {
+  mode?: string;
+  message?: string;
+  questions?: string[];
+  analysis?: Record<string, unknown>;
+  plan?: PlanStep[];
+  guidance?: NavigatorGuidance;
+  memory?: string[];
+};
+
+export type ChatMessage = {
+  role: "user" | "assistant" | "system";
   content: string;
-  createdAt?: string;
+  response?: NavigatorResponse;
 };
 
 interface ChatUIProps {
-  messages: NavigatorMessage[];
+  messages: ChatMessage[];
+  onSend: (message: string) => Promise<void> | void;
   loading?: boolean;
-  onSend: (text: string) => Promise<void>;
-  heading?: string;
+  plan?: PlanStep[];
+  guidance?: NavigatorGuidance;
+  recalledMemory?: string[];
 }
 
-const formatTime = (timestamp?: string) => {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-
-const parseAssistantPayload = (content: string) => {
-  try {
-    const parsed = JSON.parse(content);
-    if (parsed && typeof parsed === 'object') {
-      const { message, guidance } = parsed as { message?: string; guidance?: Guidance };
-      return {
-        raw: parsed,
-        displayMessage: message ?? content,
-        guidance,
-      };
-    }
-  } catch (err) {
-    // swallow parsing errors and fallback to raw content
-  }
-  return { raw: content, displayMessage: content, guidance: undefined as Guidance | undefined };
-};
-
-export const ChatUI: React.FC<ChatUIProps> = ({ messages, onSend, loading, heading }) => {
-  const [input, setInput] = useState('');
-  const [sending, setSending] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const combinedLoading = loading || sending;
-
-  const handleSend = async () => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-    setSending(true);
-    try {
-      await onSend(trimmed);
-      setInput('');
-    } finally {
-      setSending(false);
-    }
-  };
+const ChatUI: React.FC<ChatUIProps> = ({
+  messages,
+  onSend,
+  loading,
+  plan,
+  guidance,
+  recalledMemory,
+}) => {
+  const [input, setInput] = useState("");
+  const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-  }, [messages]);
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
-  const decoratedMessages = useMemo(() =>
-    messages.map((msg) => ({
-      ...msg,
-      parsed: msg.role === 'assistant' ? parseAssistantPayload(msg.content) : undefined,
-    })), [messages]);
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
+    onSend(input.trim());
+    setInput("");
+  };
+
+  const metaPrompts = useMemo(
+    () => guidance?.meta_cognition_prompts?.filter(Boolean) ?? [],
+    [guidance]
+  );
 
   return (
-    <div className="flex flex-col h-full bg-slate-950/40 border border-slate-800 rounded-xl shadow-lg">
-      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/80 rounded-t-xl">
-        <div>
-          <p className="text-sm uppercase tracking-wide text-slate-400">Robotics AI Navigator</p>
-          <h2 className="text-lg font-semibold text-white">{heading ?? 'Project Chat'}</h2>
+    <div className="flex flex-col gap-4 h-full">
+      <div className="bg-white/5 border border-gray-200/30 rounded-xl shadow-sm flex flex-col h-[70vh] overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-200/40 bg-gradient-to-r from-gray-50 to-white">
+          <h2 className="text-lg font-semibold text-gray-900">AI Project Navigator</h2>
+          <p className="text-sm text-gray-500">
+            Chat live with the robotics mentor. JSON messages render as cards for
+            clarity.
+          </p>
         </div>
-        {combinedLoading && <div className="text-xs text-emerald-300 animate-pulse">Thinking…</div>}
-      </div>
-
-      <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-slate-950 via-slate-950/80 to-slate-900">
-        {decoratedMessages.map((msg) => (
-          <div key={msg.id} className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}>
-            <div className="text-xs text-slate-400 mb-1 flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 capitalize">{msg.role}</span>
-              {msg.createdAt && <span>{formatTime(msg.createdAt)}</span>}
-            </div>
-            <div className={cn(
-              'max-w-2xl rounded-2xl px-4 py-3 shadow',
-              msg.role === 'user'
-                ? 'bg-emerald-600/80 text-white'
-                : 'bg-slate-800/80 text-slate-100 border border-slate-700',
-            )}>
-              {msg.role === 'assistant' && msg.parsed ? (
-                <div className="space-y-3">
-                  <p className="whitespace-pre-wrap leading-relaxed">{msg.parsed.displayMessage}</p>
-                  {msg.parsed.guidance?.warnings && msg.parsed.guidance.warnings.length > 0 && (
-                    <Warnings warnings={msg.parsed.guidance.warnings} />
-                  )}
-                  {msg.parsed.guidance?.best_practices && msg.parsed.guidance.best_practices.length > 0 && (
-                    <BestPractices bestPractices={msg.parsed.guidance.best_practices} />
-                  )}
-                  {msg.parsed.guidance?.next_priority && (
-                    <NextPriority nextPriority={msg.parsed.guidance.next_priority} />
-                  )}
-                  {msg.parsed.guidance?.meta_cognition_prompts && msg.parsed.guidance.meta_cognition_prompts.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      <p className="text-xs uppercase tracking-wide text-slate-400">Meta-Cognition Prompts</p>
-                      <ul className="list-disc list-inside space-y-1 text-sm text-slate-200">
-                        {msg.parsed.guidance.meta_cognition_prompts.map((prompt, idx) => (
-                          <li key={idx} className="text-slate-100/90">{prompt}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
+          {messages.map((message, idx) => (
+            <div
+              key={idx}
+              className={`flex ${
+                message.role === "assistant" ? "justify-start" : "justify-end"
+              }`}
+            >
+              <div
+                className={`max-w-3xl w-full rounded-2xl px-4 py-3 shadow-sm border ${
+                  message.role === "assistant"
+                    ? "bg-blue-50/60 border-blue-100"
+                    : "bg-gray-900 text-white border-gray-800"
+                }`}
+              >
+                <div className="text-xs font-medium uppercase tracking-wide mb-1 text-gray-500">
+                  {message.role === "assistant" ? "Assistant" : "You"}
                 </div>
-              ) : (
-                <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-              )}
+                <div className="whitespace-pre-wrap text-sm">
+                  {message.response?.message ?? message.content}
+                </div>
+
+                {message.response?.questions?.length ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                      Questions
+                    </div>
+                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                      {message.response.questions.map((q, i) => (
+                        <li key={i}>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {message.response?.analysis ? (
+                  <div className="mt-3">
+                    <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                      Analysis
+                    </div>
+                    <pre className="bg-white/70 border border-gray-200 rounded-lg p-3 text-xs text-gray-800 overflow-x-auto">
+                      {JSON.stringify(message.response.analysis, null, 2)}
+                    </pre>
+                  </div>
+                ) : null}
+
+                {message.response?.guidance?.warnings?.length ? (
+                  <div className="mt-3">
+                    <Warnings warnings={message.response.guidance.warnings} />
+                  </div>
+                ) : null}
+
+                {message.response?.guidance?.best_practices?.length ? (
+                  <div className="mt-3">
+                    <BestPractices
+                      bestPractices={message.response.guidance.best_practices}
+                    />
+                  </div>
+                ) : null}
+
+                {message.response?.guidance?.next_priority ? (
+                  <div className="mt-3">
+                    <NextPriority
+                      nextPriority={message.response.guidance.next_priority}
+                    />
+                  </div>
+                ) : null}
+
+                {message.response?.plan?.length ? (
+                  <div className="mt-3">
+                    <ProjectPlan plan={message.response.plan} />
+                  </div>
+                ) : null}
+
+                {message.response?.memory?.length ? (
+                  <div className="mt-3">
+                    <MemoryDebug memories={message.response.memory} />
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
-
-        {combinedLoading && (
-          <div className="flex items-center gap-2 text-slate-400 text-sm">
-            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
-            <span>Navigator is thinking…</span>
-          </div>
-        )}
-      </div>
-
-      <div className="border-t border-slate-800 bg-slate-900/80 rounded-b-xl p-4">
-        <div className="flex gap-3">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask for guidance, share progress, or request code snippets…"
-            className="flex-1 h-24 resize-none rounded-xl bg-slate-800/80 border border-slate-700 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
-          />
-          <button
-            onClick={handleSend}
-            disabled={combinedLoading || !input.trim()}
-            className="self-end h-12 px-4 rounded-xl bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {combinedLoading ? 'Sending…' : 'Send'}
-          </button>
+          ))}
+          {loading ? (
+            <div className="flex justify-start">
+              <div className="flex items-center space-x-2 bg-blue-50/60 border border-blue-100 px-4 py-3 rounded-2xl text-sm text-blue-700">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce delay-150" />
+                <div className="w-2 h-2 bg-blue-300 rounded-full animate-bounce delay-300" />
+                <span className="font-medium">Navigator is thinking...</span>
+              </div>
+            </div>
+          ) : null}
+          <div ref={endRef} />
         </div>
+        <form onSubmit={handleSubmit} className="border-t border-gray-200 bg-white px-4 py-3">
+          <div className="flex items-center gap-3">
+            <textarea
+              className="flex-1 resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              rows={2}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask about your robotics project, e.g., PID tuning for a line follower"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-md hover:bg-blue-700 disabled:opacity-60"
+            >
+              {loading ? "Sending..." : "Send"}
+            </button>
+          </div>
+          {metaPrompts.length ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {metaPrompts.map((prompt, idx) => (
+                <span
+                  key={idx}
+                  className="text-xs bg-purple-50 text-purple-700 border border-purple-100 px-2 py-1 rounded-lg"
+                >
+                  {prompt}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </form>
       </div>
+
+      {guidance?.warnings?.length ? (
+        <Warnings warnings={guidance.warnings} />
+      ) : null}
+
+      {guidance?.best_practices?.length ? (
+        <BestPractices bestPractices={guidance.best_practices} />
+      ) : null}
+
+      {guidance?.next_priority ? (
+        <NextPriority nextPriority={guidance.next_priority} />
+      ) : null}
+
+      {plan?.length ? <ProjectPlan plan={plan} /> : null}
+
+      {recalledMemory?.length ? <MemoryDebug memories={recalledMemory} /> : null}
     </div>
   );
 };
 
+export default ChatUI;

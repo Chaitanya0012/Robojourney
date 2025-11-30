@@ -1,22 +1,21 @@
-'use client';
+import React from "react";
 
-import React from 'react';
+type Props = {
+  bestPractices?: string[];
+};
 
-interface BestPracticesProps {
-  bestPractices: string[];
-}
-
-export const BestPractices: React.FC<BestPracticesProps> = ({ bestPractices }) => {
-  if (!bestPractices || bestPractices.length === 0) return null;
-
+const BestPractices: React.FC<Props> = ({ bestPractices = [] }) => {
+  if (!bestPractices.length) return null;
   return (
     <div className="space-y-2">
       {bestPractices.map((item, idx) => (
         <div
-          key={`${item}-${idx}`}
-          className="border border-emerald-500/40 bg-emerald-900/20 text-emerald-50 px-3 py-2 rounded-lg shadow-sm"
+          key={idx}
+          className="border border-emerald-200 bg-emerald-50 text-emerald-800 rounded-xl p-3 shadow-sm"
         >
-          <p className="text-xs uppercase tracking-wide text-emerald-300">Best Practice</p>
+          <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            Best Practice
+          </div>
           <p className="text-sm leading-relaxed">{item}</p>
         </div>
       ))}
@@ -24,3 +23,4 @@ export const BestPractices: React.FC<BestPracticesProps> = ({ bestPractices }) =
   );
 };
 
+export default BestPractices;

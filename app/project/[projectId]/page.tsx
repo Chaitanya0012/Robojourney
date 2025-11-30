@@ -1,16 +1,14 @@
-'use client';
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { ChatUI, NavigatorMessage } from '../../../components/ChatUI';
-import { Warnings } from '../../../components/Warnings';
-import { BestPractices } from '../../../components/BestPractices';
-import { NextPriority } from '../../../components/NextPriority';
-import { ProjectPlan, PlanStep } from '../../../components/ProjectPlan';
-import { MemoryDebug, MemoryChunk } from '../../../components/MemoryDebug';
-import { nanoid } from 'nanoid';
+import { useState } from "react";
+import ChatUI, { ChatMessage } from "../../../components/ChatUI";
+import { PlanStep } from "../../../components/ProjectPlan";
+import Warnings from "../../../components/Warnings";
+import BestPractices from "../../../components/BestPractices";
+import NextPriority from "../../../components/NextPriority";
+import MemoryDebug from "../../../components/MemoryDebug";
 
-type Guidance = {
+type NavigatorGuidance = {
   warnings?: string[];
   best_practices?: string[];
   meta_cognition_prompts?: string[];
@@ -19,143 +17,112 @@ type Guidance = {
 
 type NavigatorResponse = {
   mode?: string;
-  message: string;
-  plan?: PlanStep[];
-  guidance?: Guidance;
-  analysis?: Record<string, unknown>;
+  message?: string;
   questions?: string[];
-  memories?: MemoryChunk[];
+  analysis?: Record<string, unknown>;
+  plan?: PlanStep[];
+  guidance?: NavigatorGuidance;
+  memory?: string[];
 };
 
-const useNavigator = (projectId: string) => {
-  const [messages, setMessages] = useState<NavigatorMessage[]>([{
-    id: nanoid(),
-    role: 'assistant',
-    content: JSON.stringify({
-      mode: 'assessment_questions',
-      message: 'Share your project goals, hardware, and constraints so I can tailor the plan.',
-      questions: [
-        'What robot are you building (line follower, arm, obstacle avoider, manipulator)?',
-        'Which controllers and sensors are available (Arduino, ESP32, motors, encoders, IMU, LiDAR)?',
-      ],
-      guidance: {
-        next_priority: 'Describe your hardware stack and target behavior.',
-      },
-    }),
-  }]);
+export default function ProjectPage({
+  params,
+}: {
+  params: { projectId: string };
+}) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [plan, setPlan] = useState<PlanStep[]>([]);
-  const [guidance, setGuidance] = useState<Guidance>({});
-  const [memories, setMemories] = useState<MemoryChunk[]>([]);
+  const [guidance, setGuidance] = useState<NavigatorGuidance | undefined>();
+  const [recalledMemory, setRecalledMemory] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const appendMessage = useCallback((msg: NavigatorMessage) => {
-    setMessages((prev) => [...prev, msg]);
-  }, []);
-
-  const sendToNavigator = useCallback(async (text: string, mode?: string) => {
+  const sendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const userMessage: ChatMessage = { role: "user", content: trimmed };
+    setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
-    const userMsg: NavigatorMessage = { id: nanoid(), role: 'user', content: text, createdAt: new Date().toISOString() };
-    appendMessage(userMsg);
-
     try {
-      const response = await fetch('/api/navigator', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userMessage: text, projectId, mode }),
+      const res = await fetch("/api/navigator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userMessage: trimmed,
+          projectId: params.projectId,
+          mode: guidance?.mode ?? undefined,
+        }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Navigator request failed');
+      if (!res.ok) {
+        throw new Error(`Navigator error: ${res.status}`);
       }
 
-      const data: NavigatorResponse = await response.json();
-      const assistantMsg: NavigatorMessage = {
-        id: nanoid(),
-        role: 'assistant',
-        content: typeof data.message === 'string' ? data.message : JSON.stringify(data.message),
-        createdAt: new Date().toISOString(),
+      const data: NavigatorResponse = await res.json();
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content: data.message ?? "",
+        response: data,
       };
-
-      if (data.plan) setPlan(data.plan);
-      if (data.guidance) setGuidance(data.guidance);
-      if (data.memories) setMemories(data.memories);
-
-      appendMessage(assistantMsg);
+      setMessages((prev) => [...prev, assistantMessage]);
+      setPlan(data.plan ?? []);
+      setGuidance(data.guidance);
+      setRecalledMemory(data.memory ?? []);
     } catch (error) {
-      const assistantMsg: NavigatorMessage = {
-        id: nanoid(),
-        role: 'assistant',
-        content: JSON.stringify({
-          mode: 'error',
-          message: error instanceof Error ? error.message : 'Unknown navigator error',
-          guidance: { warnings: ['Navigator failed to respond. Please retry.'] },
-        }),
-        createdAt: new Date().toISOString(),
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content:
+          error instanceof Error
+            ? `Error: ${error.message}`
+            : "Navigator failed to respond.",
       };
-      appendMessage(assistantMsg);
+      setMessages((prev) => [...prev, assistantMessage]);
     } finally {
       setLoading(false);
     }
-  }, [appendMessage, projectId]);
-
-  useEffect(() => {
-    // Fetch an initial plan on mount
-    sendToNavigator('Initialize project plan', 'project_plan');
-  }, [sendToNavigator]);
-
-  return { messages, plan, guidance, memories, loading, sendToNavigator };
-};
-
-const ProjectPage: React.FC = () => {
-  const params = useParams<{ projectId: string }>();
-  const projectId = useMemo(() => params?.projectId ?? 'default', [params]);
-  const { messages, plan, guidance, memories, loading, sendToNavigator } = useNavigator(projectId);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm uppercase tracking-wide text-slate-500">Project</p>
-            <h1 className="text-3xl font-bold text-white">Navigator for Project {projectId}</h1>
-            <p className="text-slate-400 mt-1">Chat with an expert robotics mentor. Plans, warnings, and next steps update live.</p>
+            <p className="text-xs uppercase font-semibold text-blue-600">
+              Project ID
+            </p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Robotics Workspace – {params.projectId}
+            </h1>
+            <p className="text-sm text-gray-600">
+              Converse with the AI navigator, explore recommendations, and track
+              your roadmap.
+            </p>
           </div>
-          {guidance?.next_priority && (
-            <div className="max-w-sm">
+          {guidance?.next_priority ? (
+            <div className="hidden md:block w-64">
               <NextPriority nextPriority={guidance.next_priority} />
             </div>
-          )}
+          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-[70vh]">
-            <ChatUI messages={messages} onSend={(text) => sendToNavigator(text, 'live_guidance')} loading={loading} />
-          </div>
-          <div className="space-y-4">
-            {guidance?.warnings && guidance.warnings.length > 0 && (
-              <Warnings warnings={guidance.warnings} />
-            )}
-            {guidance?.best_practices && guidance.best_practices.length > 0 && (
-              <BestPractices bestPractices={guidance.best_practices} />
-            )}
-            {guidance?.next_priority && (
-              <NextPriority nextPriority={guidance.next_priority} />
-            )}
-            {plan && plan.length > 0 && (
-              <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
-                <ProjectPlan plan={plan} />
-              </div>
-            )}
-            {memories && memories.length > 0 && (
-              <MemoryDebug memories={memories} />
-            )}
-          </div>
-        </div>
+        <ChatUI
+          messages={messages}
+          onSend={sendMessage}
+          loading={loading}
+          plan={plan}
+          guidance={guidance}
+          recalledMemory={recalledMemory}
+        />
+
+        {guidance?.warnings?.length ? (
+          <Warnings warnings={guidance.warnings} />
+        ) : null}
+
+        {guidance?.best_practices?.length ? (
+          <BestPractices bestPractices={guidance.best_practices} />
+        ) : null}
+
+        {recalledMemory.length ? <MemoryDebug memories={recalledMemory} /> : null}
       </div>
     </div>
   );
-};
-
-export default ProjectPage;
-
+}

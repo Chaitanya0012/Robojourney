@@ -1,19 +1,19 @@
-'use client';
+import React from "react";
 
-import React from 'react';
-
-interface NextPriorityProps {
+type Props = {
   nextPriority?: string;
-}
+};
 
-export const NextPriority: React.FC<NextPriorityProps> = ({ nextPriority }) => {
+const NextPriority: React.FC<Props> = ({ nextPriority }) => {
   if (!nextPriority) return null;
-
   return (
-    <div className="border border-indigo-400/50 bg-indigo-900/20 text-indigo-50 px-4 py-3 rounded-xl shadow-sm">
-      <p className="text-xs uppercase tracking-wide text-indigo-200">Next Priority</p>
-      <p className="text-base leading-relaxed font-semibold">{nextPriority}</p>
+    <div className="border border-indigo-200 bg-indigo-50 text-indigo-800 rounded-xl p-3 shadow-sm">
+      <div className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+        Next Priority
+      </div>
+      <p className="text-base font-semibold mt-1">{nextPriority}</p>
     </div>
   );
 };
 
+export default NextPriority;

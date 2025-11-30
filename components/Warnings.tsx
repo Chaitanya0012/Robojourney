@@ -1,22 +1,21 @@
-'use client';
+import React from "react";
 
-import React from 'react';
+type Props = {
+  warnings?: string[];
+};
 
-interface WarningsProps {
-  warnings: string[];
-}
-
-export const Warnings: React.FC<WarningsProps> = ({ warnings }) => {
-  if (!warnings || warnings.length === 0) return null;
-
+const Warnings: React.FC<Props> = ({ warnings = [] }) => {
+  if (!warnings.length) return null;
   return (
     <div className="space-y-2">
       {warnings.map((warning, idx) => (
         <div
-          key={`${warning}-${idx}`}
-          className="border border-red-500/40 bg-red-900/20 text-red-200 px-3 py-2 rounded-lg shadow-sm"
+          key={idx}
+          className="border border-red-200 bg-red-50 text-red-800 rounded-xl p-3 shadow-sm"
         >
-          <p className="text-xs uppercase tracking-wide text-red-300">Warning</p>
+          <div className="text-xs font-semibold uppercase tracking-wide text-red-600">
+            Warning
+          </div>
           <p className="text-sm leading-relaxed">{warning}</p>
         </div>
       ))}
@@ -24,3 +23,4 @@ export const Warnings: React.FC<WarningsProps> = ({ warnings }) => {
   );
 };
 
+export default Warnings;

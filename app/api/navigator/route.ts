@@ -1,10 +1,9 @@
-import { NextResponse } from 'next/server';
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import { CHAT_MODEL, openai } from '../../../lib/openai';
-import { recallMemory, saveMemory, MemoryRow } from '../../../lib/memory';
-import { supabaseServerClient } from '../../../lib/supabase';
-import { getSimulatorStateTool } from '../../../tools/getSimulatorState';
-import { webSearchTool } from '../../../tools/webSearch';
+import { NextResponse } from "next/server";
+import { chatCompletion, ChatMessage, ChatTool } from "../../../lib/openai";
+import { recallMemory, saveMemory } from "../../../lib/memory";
+import { supabaseClient } from "../../../lib/supabase";
+import { getSimulatorStateTool } from "../../../tools/getSimulatorState";
+import { webSearchTool } from "../../../tools/webSearch";
 
 const SYSTEM_PROMPT = `<<<SYSTEM_PROMPT_START>>>
 
@@ -36,165 +35,143 @@ Think like a robotics expert with experience in Arduino, ESP32, sensors, motors,
 
 <<<SYSTEM_PROMPT_END>>>`;
 
-type NavigatorBody = {
-  userMessage?: string;
-  projectId: string;
-  mode?: string;
-  userId?: string;
-};
+const toolsWithHandlers = [getSimulatorStateTool, webSearchTool];
 
-type PlanStep = {
-  title: string;
-  description: string;
-  prerequisites?: string[];
-  resources?: string[];
-};
+async function callToolsIfNeeded(
+  initialMessage: ChatMessage | undefined,
+  messages: ChatMessage[],
+  toolDefs: ChatTool[]
+): Promise<ChatMessage | undefined> {
+  let message = initialMessage;
+  if (!message) return undefined;
 
-const toolDefinitions = [getSimulatorStateTool, webSearchTool];
+  if (message.tool_calls?.length) {
+    messages.push(message);
 
-const loadProjectPlan = async (projectId: string): Promise<PlanStep[]> => {
-  const { data, error } = await supabaseServerClient
-    .from('project_plans')
-    .select('plan')
-    .eq('project_id', projectId)
-    .single();
-
-  if (error || !data?.plan) {
-    return [
-      {
-        title: 'Clarify goals and hardware',
-        description: 'Confirm the target behavior, hardware bill of materials, and constraints.',
-        prerequisites: ['List motors, drivers, sensors, and controller'],
-      },
-      {
-        title: 'Build minimal control loop',
-        description: 'Bring up motor control with safety limits, then add sensor streaming.',
-        prerequisites: ['Motor driver wiring validated', 'Power budget checked'],
-      },
-      {
-        title: 'Implement closed-loop behavior',
-        description: 'Tune PID/logic and add fail-safes using telemetry from simulator or bench tests.',
-        resources: ['Link to controller datasheet', 'Simulator state viewer'],
-      },
-    ];
-  }
-
-  return data.plan as PlanStep[];
-};
-
-const serializeMemories = (memories: MemoryRow[]) => {
-  if (!memories || memories.length === 0) return 'No prior memory available.';
-  return memories
-    .map((m, idx) => `(${idx + 1}) score=${m.similarity?.toFixed(3) ?? 'n/a'} :: ${m.content}`)
-    .join('\n');
-};
-
-export async function POST(req: Request) {
-  try {
-    const body = (await req.json()) as NavigatorBody;
-    const { userMessage, projectId, mode = 'live_guidance', userId = 'demo-user' } = body;
-
-    if (!projectId) {
-      return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
-    }
-
-    const [plan, memories] = await Promise.all([
-      loadProjectPlan(projectId),
-      recallMemory(projectId, userMessage || 'project context').catch(() => [] as MemoryRow[]),
-    ]);
-
-    const messages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'system', content: `Project ID: ${projectId}` },
-      { role: 'system', content: `Project plan: ${JSON.stringify(plan)}` },
-      { role: 'system', content: `Relevant memory:\n${serializeMemories(memories)}` },
-      { role: 'user', content: userMessage ?? 'Continue guidance' },
-    ];
-
-    const toolChoice = toolDefinitions.map((tool) => ({
-      type: 'function' as const,
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters,
-      },
-    }));
-
-    let completion = await openai.chat.completions.create({
-      model: CHAT_MODEL,
-      messages,
-      tools: toolChoice,
-      tool_choice: 'auto',
-    });
-
-    let choice = completion.choices[0];
-    const toolMessages: ChatCompletionMessageParam[] = [];
-
-    if (choice.message.tool_calls?.length) {
-      for (const toolCall of choice.message.tool_calls) {
-        const tool = toolDefinitions.find((t) => t.name === toolCall.function.name);
-        let args: Record<string, unknown> = {};
-        try {
-          args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
-        } catch {
-          args = { _raw: toolCall.function.arguments } as Record<string, unknown>;
-        }
-        let result: unknown;
-        if (!tool) {
-          result = { error: `Tool ${toolCall.function.name} not implemented` };
-        } else {
-          try {
-            result = await tool.handler(args);
-          } catch (error) {
-            result = { error: error instanceof Error ? error.message : 'Tool execution failed' };
-          }
-        }
-        toolMessages.push({
-          role: 'tool',
+    for (const toolCall of message.tool_calls) {
+      const tool = toolsWithHandlers.find((t) => t.name === toolCall.function.name);
+      if (!tool) continue;
+      try {
+        const args = toolCall.function.arguments
+          ? JSON.parse(toolCall.function.arguments)
+          : {};
+        const result = await tool.handler(args);
+        messages.push({
+          role: "tool",
+          name: tool.name,
           tool_call_id: toolCall.id,
           content: JSON.stringify(result),
         });
+      } catch (error) {
+        messages.push({
+          role: "tool",
+          name: tool.name,
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({ error: (error as Error).message }),
+        });
       }
-
-      const followUpMessages: ChatCompletionMessageParam[] = [...messages, choice.message, ...toolMessages];
-      completion = await openai.chat.completions.create({
-        model: CHAT_MODEL,
-        messages: followUpMessages,
-      });
-      choice = completion.choices[0];
     }
 
-    const finalMessage = choice.message.content ?? '';
-    const parsed = (() => {
-      try {
-        return JSON.parse(finalMessage as string);
-      } catch {
-        return null;
-      }
-    })();
+    const followUp = await chatCompletion(messages, toolDefs);
+    message = followUp.choices[0]?.message;
+  }
 
-    if (userMessage) {
+  return message;
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { userMessage, projectId, mode } = body as {
+      userMessage?: string;
+      projectId?: string;
+      mode?: string;
+      userId?: string;
+    };
+
+    if (!userMessage || !projectId) {
+      return NextResponse.json(
+        { error: "userMessage and projectId are required" },
+        { status: 400 }
+      );
+    }
+
+    const userId = body.userId ?? "anonymous";
+
+    let recalledMemory: string[] = [];
+    try {
+      recalledMemory = await recallMemory(projectId, userMessage);
+    } catch (error) {
+      console.error("Memory recall failed", error);
+    }
+
+    const planResult = await supabaseClient
+      .from("project_plan")
+      .select("title, description, prerequisites, resources")
+      .eq("project_id", projectId)
+      .order("order", { ascending: true });
+
+    const plan =
+      planResult.data?.map((row) => ({
+        title: row.title,
+        description: row.description,
+        prerequisites: row.prerequisites ?? [],
+        resources: row.resources ?? [],
+      })) ?? [];
+
+    const toolDefs: ChatTool[] = toolsWithHandlers.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    }));
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: JSON.stringify({
+          mode,
+          projectId,
+          userMessage,
+          plan,
+          recalledMemory,
+        }),
+      },
+    ];
+
+    const initialResponse = await chatCompletion(messages, toolDefs);
+    let message = initialResponse.choices[0]?.message;
+
+    message = await callToolsIfNeeded(message, messages, toolDefs);
+
+    const content = message?.content ?? "";
+
+    try {
       await saveMemory(userId, projectId, userMessage);
+      if (content) {
+        await saveMemory(userId, projectId, content);
+      }
+    } catch (error) {
+      console.error("Failed to save memory", error);
     }
-    if (finalMessage) {
-      await saveMemory(userId, projectId, finalMessage);
+
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      parsed = { message: content };
     }
 
     return NextResponse.json({
-      mode: parsed?.mode ?? mode,
-      message: parsed?.message ?? finalMessage,
-      plan: parsed?.plan ?? plan,
-      guidance: parsed?.guidance,
-      analysis: parsed?.analysis,
-      questions: parsed?.questions,
-      memories,
+      ...parsed,
+      plan: (parsed as { plan?: unknown[] }).plan ?? plan,
+      memory: recalledMemory,
     });
   } catch (error) {
-    console.error('Navigator API error', error);
+    console.error(error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Navigator failed' },
-      { status: 500 },
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
     );
   }
 }
-
