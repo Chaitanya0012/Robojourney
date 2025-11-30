@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio } from "lucide-react";
+import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Brain, AlertTriangle } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Editor from "@monaco-editor/react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const defaultCode = `// Arduino-style robot code
 void setup() {
@@ -54,8 +57,22 @@ const Simulator = () => {
   const [serialOutput, setSerialOutput] = useState<string[]>([]);
   const [ledState, setLedState] = useState(false);
   const [board, setBoard] = useState<keyof typeof boardPresets>("arduino-uno");
+  const [simulatorError, setSimulatorError] = useState<string | null>(null);
+  const [aiHint, setAiHint] = useState<string>("");
+  const [isHintLoading, setIsHintLoading] = useState(false);
+
+  const { user } = useAuth();
 
   const currentBoard = useMemo(() => boardPresets[board], [board]);
+
+  const usedPins = useMemo(() => {
+    const matches = Array.from(code.matchAll(/\b(?:pinMode|digitalWrite|analogWrite)\s*\(\s*([A-Za-z0-9_]+)\s*,/g));
+    return matches.map(match => {
+      const pin = match[1].toString().toUpperCase();
+      if (/^\d+$/.test(pin)) return `D${pin}`;
+      return pin;
+    });
+  }, [code]);
 
   useEffect(() => {
     if (!isRunning) return;
@@ -78,7 +95,55 @@ const Simulator = () => {
     return () => clearInterval(interval);
   }, [isRunning]);
 
+  const analyzeCodeForErrors = (sketch: string) => {
+    if (!sketch.includes("setup")) return "Sketch is missing a setup() function.";
+    if (!sketch.includes("loop")) return "Sketch is missing a loop() function.";
+
+    const opens = (sketch.match(/{/g) || []).length;
+    const closes = (sketch.match(/}/g) || []).length;
+    if (opens !== closes) return "Unbalanced braces detected—check your curly brackets.";
+
+    return null;
+  };
+
+  const requestAiHint = async (errorMessage: string) => {
+    setIsHintLoading(true);
+    setAiHint("");
+
+    const prompt = `You are an encouraging robotics tutor. A student simulator run failed. Share short guiding questions and hints only—do not reveal the full fix. Error: ${errorMessage}. Code:\n\n${code}`;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-tutor', {
+        body: {
+          prompt,
+          userId: user?.id,
+          action: 'chat'
+        }
+      });
+
+      if (error) throw error;
+      setAiHint(data.response || "Let's walk through the issue together.");
+    } catch (err: any) {
+      console.error('AI hint error', err);
+      toast.error("AI tutor couldn't analyze the error right now.");
+    } finally {
+      setIsHintLoading(false);
+    }
+  };
+
   const handleRun = () => {
+    if (!isRunning) {
+      const detectedError = analyzeCodeForErrors(code);
+      if (detectedError) {
+        setSimulatorError(detectedError);
+        setSerialOutput((prevOutput) => [...prevOutput, `⚠️ ${detectedError}`]);
+        requestAiHint(detectedError);
+        return;
+      }
+      setSimulatorError(null);
+      setAiHint("");
+    }
+
     setIsRunning((prev) => {
       const next = !prev;
       if (next) {
@@ -92,6 +157,8 @@ const Simulator = () => {
     setIsRunning(false);
     setLedState(false);
     setSerialOutput([]);
+    setSimulatorError(null);
+    setAiHint("");
   };
 
   return (
@@ -182,7 +249,14 @@ const Simulator = () => {
                       <div className="text-white/80 text-xs mb-2">Digital Pins</div>
                       <div className="grid grid-cols-5 gap-2 text-[10px] text-white/90">
                         {[...Array(currentBoard.lanes).keys()].map((lane) => (
-                          <div key={lane} className="px-2 py-1 rounded bg-white/10 border border-white/5 text-center">
+                          <div
+                            key={lane}
+                            className={`px-2 py-1 rounded border text-center transition-colors ${
+                              usedPins.includes(`D${lane + 2}`)
+                                ? "bg-emerald-500/70 border-emerald-200 text-white shadow-glow-cyan"
+                                : "bg-white/10 border-white/5"
+                            }`}
+                          >
                             D{lane + 2}
                           </div>
                         ))}
@@ -192,13 +266,21 @@ const Simulator = () => {
                       <div className="text-white/80 text-xs mb-2">Power & Analog</div>
                       <div className="flex flex-wrap gap-2 text-[10px] text-white/90">
                         {["5V", "3V3", "GND", "VIN", "A0", "A1", "A2", "A3", "A4", "A5"].map((label) => (
-                          <div key={label} className="px-2 py-1 rounded bg-white/10 border border-white/5">
+                          <div
+                            key={label}
+                            className={`px-2 py-1 rounded border transition-colors ${
+                              usedPins.includes(label)
+                                ? "bg-emerald-500/70 border-emerald-200 text-white shadow-glow-cyan"
+                                : "bg-white/10 border-white/5"
+                            }`}
+                          >
                             {label}
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
+                  <p className="text-[11px] text-white/80">Highlighted pins show what your code is touching.</p>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full shadow-lg border-4 border-white/40 transition-all duration-300 ${ledState ? "bg-yellow-300 shadow-glow-cyan" : "bg-white/20"}`} />
                     <div className="text-white text-sm">
@@ -221,6 +303,32 @@ const Simulator = () => {
                   ))
                 )}
               </div>
+            </Card>
+
+            <Card className="p-6 glass-card space-y-3">
+              <div className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold">AI Tutor Coach</h2>
+              </div>
+              {simulatorError ? (
+                <div className="flex items-start gap-2 text-amber-600 text-sm">
+                  <AlertTriangle className="h-4 w-4 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Detected issue</p>
+                    <p>{simulatorError}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Run your sketch to get proactive coaching when something fails.</p>
+              )}
+
+              {isHintLoading ? (
+                <p className="text-sm text-muted-foreground">AI tutor is reviewing your code…</p>
+              ) : aiHint ? (
+                <div className="rounded-md bg-muted/50 border border-border/50 p-3 text-sm whitespace-pre-wrap">
+                  {aiHint}
+                </div>
+              ) : null}
             </Card>
           </div>
         </div>
