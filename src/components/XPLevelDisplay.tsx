@@ -1,7 +1,6 @@
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Trophy, Star } from "lucide-react";
-import { LEVEL_THRESHOLDS } from "@/hooks/useXP";
+import { DEFAULT_LEVEL_THRESHOLDS, useXPConfig } from "@/hooks/useXP";
 
 interface XPLevelDisplayProps {
   totalXP: number;
@@ -10,6 +9,9 @@ interface XPLevelDisplayProps {
 }
 
 export const XPLevelDisplay = ({ totalXP, currentLevel, compact = false }: XPLevelDisplayProps) => {
+  const { data: xpConfig } = useXPConfig();
+  const levels = xpConfig?.levels ?? DEFAULT_LEVEL_THRESHOLDS;
+
   if (compact) {
     return (
       <div className="flex items-center gap-2">
@@ -29,7 +31,7 @@ export const XPLevelDisplay = ({ totalXP, currentLevel, compact = false }: XPLev
     <Card className="p-6 bg-gradient-to-br from-primary/10 to-secondary/5 border-primary/20">
       <h3 className="text-lg font-semibold mb-4">Level Progression</h3>
       <div className="space-y-3">
-        {LEVEL_THRESHOLDS.map((level) => {
+        {levels.map((level) => {
           const isUnlocked = totalXP >= level.xp;
           const isCurrent = currentLevel === level.level;
           
