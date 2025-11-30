@@ -60,6 +60,10 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Performance playbook
+
+See [docs/performance-optimization.md](docs/performance-optimization.md) for concrete steps to speed up the Supabase-backed React app (bundle slimming, lazy loading, caching/SSR, simulator isolation, and AI tutor loading).
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/9f8c250a-3760-4dd6-aa26-82934c4db15a) and click on Share -> Publish.
