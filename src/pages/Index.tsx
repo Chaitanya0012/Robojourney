@@ -1,14 +1,32 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import Navigation from "@/components/Navigation";
 import CollaborationDialog from "@/components/CollaborationDialog";
-import { Zap, Target, Users, TrendingUp, Sparkles, Rocket, Mail, ArrowRight, Star, ShieldCheck } from "lucide-react";
+import {
+  Zap,
+  Target,
+  Users,
+  TrendingUp,
+  Sparkles,
+  Rocket,
+  Mail,
+  ArrowRight,
+  Star,
+  Brain,
+  ShieldCheck,
+  Compass,
+  Activity,
+  MessageSquare,
+} from "lucide-react";
 import heroImage from "@/assets/hero-robotics.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { usePlatformStats } from "@/hooks/usePlatformStats";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 const Index = () => {
   const { user } = useAuth();
@@ -167,13 +185,13 @@ const Index = () => {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Link to="/auth" className="group">
-                  <Button 
-                    size="lg" 
+                <Link to={isLoggedIn ? "/dashboard" : "/auth"} className="group">
+                  <Button
+                    size="lg"
                     className="w-full sm:w-auto text-lg px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-cyan glow-border"
                   >
                     <Zap className="mr-2 h-5 w-5 group-hover:animate-glow-pulse" />
-                    Get Started Free
+                    {isLoggedIn ? "Go to Dashboard" : "Get Started Free"}
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
@@ -333,6 +351,59 @@ const Index = () => {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-reveal">
+            <Card className="p-4 glass-card flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-primary">
+                <Compass className="h-4 w-4" />
+                <span className="text-sm font-semibold">AI Navigator Signal</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{navSignal}</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs">Synthetic planning</span>
+                <span className="px-3 py-1 rounded-full bg-accent/10 text-accent text-xs">Ready to route</span>
+              </div>
+            </Card>
+
+            <Card className="p-4 glass-card">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-secondary">
+                  <Activity className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Next 3 plays</span>
+                </div>
+                <span className="text-xs text-muted-foreground">Auto-refreshed</span>
+              </div>
+              <div className="space-y-3">
+                {navActions.map((action, idx) => (
+                  <div key={idx} className="p-3 rounded-lg border border-border/50 bg-background/60">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">{action.title}</p>
+                      <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">{action.eta}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{action.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-4 glass-card">
+              <div className="flex items-center gap-2 text-destructive mb-2">
+                <AlertOctagon className="h-4 w-4" />
+                <span className="text-sm font-semibold">Risk radar</span>
+              </div>
+              <div className="space-y-2">
+                {navRisks.map((risk, idx) => (
+                  <div key={idx} className="p-2 rounded-lg bg-destructive/5 border border-destructive/20">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-destructive">{risk.label}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-background/80 text-foreground">{risk.status}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{risk.mitigation}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
           {/* Section Header */}
           <div className="text-center mb-20 space-y-4 animate-reveal">
             <div className="inline-block px-4 py-2 glass-card rounded-full mb-4">
@@ -366,6 +437,149 @@ const Index = () => {
                 </p>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Accelerator Section */}
+      <section className="py-24 px-4 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-secondary/5" />
+        <div className="container mx-auto relative z-10">
+          <div className="grid lg:grid-cols-3 gap-10 items-start">
+            <Card className="p-8 lg:col-span-1 glass-card glow-border space-y-6 animate-reveal">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card">
+                <Activity className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Momentum boosters</span>
+              </div>
+              <h2 className="text-4xl font-bold leading-tight">
+                Ship robotics projects faster with focused guidance
+              </h2>
+              <p className="text-muted-foreground text-lg leading-relaxed">
+                These premium tools are live in the workspace experience and show up instantly in the preview.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
+                  <p className="text-sm text-muted-foreground">Safety checks and wiring reminders built into every template</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Brain className="h-5 w-5 text-secondary mt-0.5" />
+                  <p className="text-sm text-muted-foreground">Tutor answers grounded in your project context and goals</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Compass className="h-5 w-5 text-accent mt-0.5" />
+                  <p className="text-sm text-muted-foreground">Auto-generated next steps so you always know what to do next</p>
+                </div>
+              </div>
+              <div className="pt-4 flex flex-wrap gap-3">
+                <Badge variant="secondary" className="px-3 py-1 bg-primary/10 text-primary">Live in preview</Badge>
+                <Badge variant="outline" className="px-3 py-1">No setup required</Badge>
+              </div>
+            </Card>
+
+            <div className="lg:col-span-2 grid md:grid-cols-2 gap-6">
+              {accelerators.map((item, index) => (
+                <Card
+                  key={item.title}
+                  className="p-6 glass-card glow-border hover-lift animate-scale-in space-y-4"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="inline-flex p-3 rounded-2xl premium-gradient">
+                      <item.icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <Badge className="bg-secondary/20 text-secondary-foreground">{item.badge}</Badge>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold mb-1">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Auto-enabled</span>
+                    <span className="text-primary font-medium">Instant updates</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Journey Preview Section */}
+      <section className="py-24 px-4 relative">
+        <div className="container mx-auto">
+          <div className="grid lg:grid-cols-3 gap-8 items-start">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="inline-flex p-3 rounded-xl glass-card">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-primary font-semibold">Learning preview</p>
+                  <h2 className="text-4xl font-bold">See your roadmap before you sign in</h2>
+                </div>
+              </div>
+              <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl">
+                The Lovable preview mirrors what students see after onboarding—adaptive sprints, XP targets, and badges ready to unlock.
+              </p>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {journeyPreview.map((stage) => (
+                  <Card key={stage.title} className="p-5 glass-card glow-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-lg">{stage.title}</h3>
+                      <Badge variant="outline" className="text-xs">{stage.focus}</Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Progress</span>
+                        <span className="text-primary font-semibold">{stage.progress}%</span>
+                      </div>
+                      <Progress value={stage.progress} className="h-2" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {stage.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="bg-primary/10 text-primary">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            <Card className="p-6 glass-card glow-border animate-reveal space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-primary font-medium">Live pulse</p>
+                  <h3 className="text-2xl font-bold">Platform momentum</h3>
+                </div>
+                <Sparkles className="h-6 w-6 text-secondary" />
+              </div>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Active learners</span>
+                  <span className="font-semibold text-primary">{platformStats?.totalLearners || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Projects built</span>
+                  <span className="font-semibold text-secondary">{platformStats?.totalProjects || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Resources shared</span>
+                  <span className="font-semibold text-accent">{platformStats?.totalResources || 0}</span>
+                </div>
+              </div>
+              <div className="pt-2 space-y-2">
+                <Button asChild className="w-full">                    
+                  <Link to="/dashboard">Explore dashboard</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full border-border/50">
+                  <Link to="/tutor">Ask the AI tutor</Link>
+                </Button>
+              </div>
+            </Card>
           </div>
         </div>
       </section>
@@ -440,6 +654,37 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Trust Section */}
+      <section className="py-24 px-4 relative">
+        <div className="container mx-auto">
+          <div className="text-center mb-14 space-y-4">
+            <div className="inline-block px-4 py-2 glass-card rounded-full">
+              <span className="text-sm font-medium text-primary">Built for real progress</span>
+            </div>
+            <h2 className="text-5xl font-bold">Why learners stick with RoboJourney</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              We combine community, coaching, and a transparent XP system so you always know what to do next.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {trustSignals.map((signal, index) => (
+              <Card
+                key={signal.title}
+                className="p-8 glass-card glow-border hover-lift animate-scale-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="inline-flex p-4 rounded-2xl premium-gradient mb-5">
+                  <signal.icon className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="text-2xl font-semibold mb-2">{signal.title}</h3>
+                <p className="text-muted-foreground leading-relaxed">{signal.description}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Final CTA Section - Premium */}
       <section className="py-32 px-4 relative">
         <div className="container mx-auto">
@@ -461,13 +706,13 @@ const Index = () => {
               <p className="text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
                 Join thousands of learners transforming their robotics skills with RoboJourney
               </p>
-              <Link to="/auth" className="inline-block group">
-                <Button 
-                  size="lg" 
+              <Link to={isLoggedIn ? "/dashboard" : "/auth"} className="inline-block group">
+                <Button
+                  size="lg"
                   className="text-xl px-12 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-cyan glow-border"
                 >
                   <Zap className="mr-3 h-6 w-6 group-hover:animate-glow-pulse" />
-                  Create Free Account
+                  {isLoggedIn ? "Open Dashboard" : "Create Free Account"}
                   <ArrowRight className="ml-3 h-6 w-6 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Flame, Sparkles, Target } from "lucide-react";
 import Navigation from "@/components/Navigation";
+import { Progress } from "@/components/ui/progress";
 
 interface QuizQuestion {
   id: string;
@@ -161,11 +162,21 @@ export default function QuizAdvanced() {
             <div className="text-sm text-muted-foreground">
               Question {currentIndex + 1} of {questions.length}
             </div>
-            <div className="flex gap-4 text-sm">
-              <div>XP: {stats.xp}</div>
-              <div>Streak: {stats.streak}</div>
-              <div className="text-green-500">✓ {stats.correct}</div>
-              <div className="text-red-500">✗ {stats.incorrect}</div>
+
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/10 via-secondary/10 to-background border border-border/60 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">AI Quiz Coach</p>
+              <h3 className="text-lg font-semibold">Stay accurate & fast</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                The coach watches your streak and nudges you to review when accuracy dips. Keep momentum by pausing to scan explanations.
+              </p>
+              <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Adaptive difficulty adjusts every two correct answers.
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-secondary" /> Finish strong by hitting 90%+ in the next two items.
+                </div>
+              </div>
             </div>
           </div>
 
