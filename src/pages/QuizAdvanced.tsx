@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Flame, Target, Sparkles } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import { generateConceptQuestions, QuizArticle } from "@/lib/questionGenerator";
 

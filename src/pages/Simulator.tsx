@@ -4,13 +4,10 @@ import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Shield, Bug, Brain, 
 import Navigation from "@/components/Navigation";
 import { SimulatorCanvas } from "@/components/simulator/SimulatorCanvas";
 import { CodeEditor } from "@/components/simulator/CodeEditor";
+import { TelemetryPanel } from "@/components/simulator/TelemetryPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { CodeEditor } from "@/components/simulator/CodeEditor";
-import { TelemetryPanel } from "@/components/simulator/TelemetryPanel";
-import { SimulatorCanvas } from "@/components/simulator/SimulatorCanvas";
 import { useSimulator } from "@/hooks/useSimulator";
 
 const defaultCode = `// Arduino-style robot code\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);\n  pinMode(2, OUTPUT); // Motor A\n  pinMode(3, OUTPUT); // Motor B\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  setMotor(0.5, 0.5);\n  await sleep(500);\n  digitalWrite(LED_BUILTIN, HIGH);\n  Serial.println("Moving forward");\n}`;
@@ -449,14 +446,9 @@ const Simulator = () => {
               <p className="mb-4 text-sm text-muted-foreground">
                 When the simulator spots an issue, the AI tutor will ask guiding questions instead of giving the answer.
               </p>
-              {isTutorAnalyzing ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-primary"></div>
-                  <span>AI tutor is reviewing your code...</span>
-                </div>
-              ) : tutorGuidance ? (
+              {diagnostics.errors.length > 0 ? (
                 <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
-                  {tutorGuidance}
+                  Review the errors above and fix them to continue.
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">Run the simulator to see guided debugging tips here.</div>
