@@ -1,108 +1,72 @@
 # Implementation Plan: Simulator, AI Navigation, and Quiz Redesign
 
-## Goals
-- Replace the placeholder simulator with a real code execution pipeline that mirrors Arduino Uno/Nano and ESP32 behavior.
-- Deliver an AI navigation tool that generates personalized learning journeys grounded in platform content.
-- Embed a context-aware AI tutor that reacts to user actions and past mistakes.
-- Redesign quizzes with scaffolded difficulty, adaptive feedback, and tight integration with the tutor.
-
 ## 1. Simulator Debugging Redesign
-### Current Gap
-The simulator presents canned output instead of executing user code, so errors and logic issues never surface.
+### Goals
+- Execute user Arduino Uno/Nano/ESP32 code in real time and surface compile/runtime errors instead of pre-rendered animations.
+- Reflect true hardware state in the DOM (LEDs, sensors, servos, serial output) based on program behavior.
+- Provide immediate, meaningful feedback for compilation and runtime issues.
 
-### Target Experience
-- **Real-time compilation & execution** of Arduino C/C++ sketches for Uno/Nano (AVR) and phased support for ESP32.
-- **Accurate hardware emulation** for GPIO, timers, serial, and common peripherals.
-- **Live DOM updates** that mirror pin states, peripheral data, and serial output.
-- **Immediate error feedback** for compile-time and runtime issues.
+### Approach
+1. **Microcontroller emulation**
+   - Integrate **AVR8js** in the frontend to emulate ATmega328p for Arduino Uno/Nano.
+   - For ESP32, start with a limited mode (e.g., MicroPython or logic sandbox) while evaluating a WebAssembly-based emulator similar to Wokwi’s approach.
 
-### Architecture
-- **Frontend**: React + TypeScript UI with Monaco editor, run/pause/reset controls, serial monitor, and visual hardware widgets.
-- **Simulation engine**: AVR8js in a Web Worker for Uno/Nano; placeholder high-level ESP32 mode with roadmap to WebAssembly emulator.
-- **Compilation service**: Node/Express endpoint wrapping Arduino CLI (avr-gcc/xtensa-esp32) in a sandbox or container; returns HEX/ELF or structured errors.
-- **State bridge**: PostMessage channel between UI and worker to stream execution state, pin writes, serial bytes, and errors.
+2. **On-the-fly compilation service**
+   - Build a TypeScript/Node API that accepts Arduino sketches and compiles them via Arduino CLI or `avr-gcc` in a sandbox/Docker container.
+   - Cache identical submissions to speed up iteration and return `.hex`/binary plus parsed compiler diagnostics on failure.
 
-### Incremental Delivery
-1. **Groundwork (Week 1)**
-   - Add worker wrapper for AVR8js with CPU, flash loading, timers, and interrupt loop stepping via `requestAnimationFrame`.
-   - Define message protocol: `compile-request`, `compile-result`, `run`, `pause`, `pin-update`, `serial-data`, `error`.
-2. **Compilation pipeline (Week 1-2)**
-   - Implement backend compile route using Arduino CLI; cache by code hash and board target; return HEX or diagnostics.
-   - Parse errors to Monaco markers and error panel.
-3. **Hardware hooks (Week 2)**
-   - Map PORT/DDR registers to virtual pins; emit pin-state diffs to UI; update LED/servo widgets every frame.
-   - Capture UART writes for serial monitor; throttle updates for performance.
-4. **Runtime controls (Week 2-3)**
-   - Run/pause/reset commands; execution budget per frame to avoid UI jank; watchdog for infinite loops with user warning.
-   - Export sketch button uses latest source; log compilation + run events for analytics.
-5. **ESP32 path (Week 3+)**
-   - Start with high-level interpreted mock (e.g., constrained JS/TypeScript templates) to reflect logic in UI.
-   - Plan WebAssembly-based ESP32 emulator (e.g., QEMU build) behind feature flag; reuse compile service with xtensa toolchain.
+3. **Simulation loop and timing**
+   - Load compiled binaries into AVR8js CPU instances, initialize timers (millis/delay), and tick the CPU on `requestAnimationFrame`/`setInterval` to keep UI responsive.
+   - Run simulations in a Web Worker when possible; expose pause/resume/step controls.
 
-### UI Enhancements
-- Live LED, PWM/servo, and sensor widgets driven by pin updates.
-- Serial monitor with timestamped entries and clear button.
-- Error drawer highlighting lines and suggested fixes.
+4. **Hardware/DOM bridging**
+   - Map MCU registers (e.g., `PORTB`) to visual components and update DOM elements or Wokwi web components in sync with pin state changes.
+   - Translate PWM/serial events to servo angles, LED brightness, or console output refreshed at 30–60 FPS.
 
-## 2. AI Navigation Tool (Learning Journey Builder)
-### Objectives
-- Turn user intents (e.g., "ESP32 robot arm") into structured project roadmaps with steps, resources, and checkpoints.
-- Ground responses in platform content and quizzes.
+5. **Error handling and debugging UX**
+   - Surface compile errors directly beneath the editor; add Monaco markers/squiggles on offending lines.
+   - Detect likely infinite loops or stalled simulations and warn/throttle; offer step-through or breakpoints for debugging.
+   - Capture simulator logs (pin toggles, serial writes) for an in-app console and AI tutor context.
 
-### Workflow
-1. **Intent parsing**: Send user prompt plus platform taxonomy to OpenAI (GPT-4o) via server SDK; extract board, components, skills.
-2. **Content retrieval**: Query tagged content/quiz index (simple search now; embeddings later) for articles, schematics, and quizzes.
-3. **Plan synthesis**: Prompt model with retrieved snippets to generate Markdown journey: overview, numbered steps with links, best practices, pitfalls, and quiz recommendations.
-4. **Delivery**: Render Markdown in UI; allow saving to user profile; expose "start step" actions that open relevant articles or templates.
+## 2. AI Navigation Tool and Context-Aware Tutor
+### Goals
+- Generate structured learning journeys from user goals and platform content.
+- Deliver context-aware, proactive guidance tied to the user’s code, board selection, and simulator events.
 
-### Engineering Tasks
-- Define content/quiz metadata schema (topics, grade level, format).
-- Create journey generation endpoint with caching and rate limiting.
-- UI component for "Navigation" panel with prompt input, generated plan display, and save/share actions.
+### Approach
+1. **Tailored learning journeys**
+   - Use OpenAI (via Node/TypeScript SDK) with retrieval over tagged content to draft Markdown plans: overview, ordered steps, resources, pitfalls, best practices, and quiz checkpoints.
+   - Provide clear formatting (headings, numbered steps, resource links, quiz recommendations) for direct rendering.
 
-## 3. Context-Aware AI Tutor
-### Objectives
-- Provide proactive, specific help based on code, compile output, simulator state, and quiz history.
-- Maintain a mistake log to personalize guidance and avoid repetition.
+2. **Workspace-aware tutor**
+   - Subscribe to IDE/simulator/quiz events through an event bus or state store (e.g., Redux/RxJS) to trigger help on compile errors, simulation runs, or user prompts.
+   - Gather context (code snippets, board/config, recent errors, interaction history) and feed concise prompts to GPT-4; mix rule-based detectors for common mistakes (missing `pinMode`, `Serial.begin`, etc.).
+   - Maintain a “mistakes log” per user for personalized reminders and review dashboards; respect privacy/consent and per-user scoping.
 
-### Event & Context Model
-- Event bus (e.g., Zustand/RxJS) publishes: code edits, compile results, simulator run events, quiz attempts.
-- Context builder assembles recent code, active board, last errors, and mistake history for tutor prompts.
+3. **UI hooks and rate limits**
+   - Enable the tutor to highlight code lines, open references, or insert snippets via structured responses (tokens/JSON) interpreted by the frontend.
+   - Throttle AI calls, cache repeated explanations, and allow opt-in/out of proactive tips.
 
-### Response Strategy
-- **Rule-based hints** for common issues (missing `pinMode`, no `Serial.begin`, tight loops without delay).
-- **AI explanations** via GPT-4o when rule coverage is insufficient; prompts include code snippets and recent events.
-- **UI actions** embedded in responses (e.g., highlight line, open article, suggest quiz) via structured metadata.
+## 3. Quiz Section Redesign
+### Goals
+- Deliver scaffolded quizzes (basic → applied → challenge) aligned to robotics projects for grades 6–11.
+- Integrate quizzes with AI navigation and tutor for recommendations and adaptive feedback.
 
-### Data & Privacy
-- Per-user mistake log (local storage + backend sync) with timestamp, issue, hint, and resolution status.
-- Consent dialog for code analysis; scoped data access per user session; HTTPS for API calls; throttling and caching to control costs.
+### Approach
+1. **Question bank and tagging**
+   - Store questions in structured data with fields for options, correct answers, explanations, difficulty, grade level, and topic tags (e.g., sensors, debugging, ESP32).
+   - Use tags for retrieval by the navigation tool and tutor suggestions.
 
-## 4. Quiz Section Redesign
-### Principles
-- Scaffolded difficulty (basic → applied → challenge) aimed at grades 6–11.
-- Robotics-focused scenarios tied to current projects.
-- Immediate feedback with explanations and tutor follow-up.
+2. **Scaffolded delivery and adaptivity**
+   - Sequence questions by rising difficulty within quizzes; adjust flow based on performance (accelerate on success, provide hints/review on struggles).
+   - Offer mixed formats: multiple choice and short code/open-ended responses, with auto-grading where possible and AI-evaluated feedback for free-form answers.
 
-### Content Model
-- Question bank schema: `id`, `text`, `options`, `answer`, `explanation`, `difficulty`, `topics[]`, `gradeRange`, `type` (MCQ, short, code).
-- Tags align with navigation/tutor topics to enable recommendations.
+3. **UX and feedback**
+   - Show progress indicators and visual aids (circuits/code snippets) where relevant.
+   - Provide immediate explanations after each question and summary breakdowns (basic/applied/challenge scores) with links to remedial resources.
+   - Gamify with badges/streaks and allow quizzes to appear inline with project milestones suggested by the navigation tool or tutor.
 
-### Experience Flow
-1. Display level and progress ("Q2 of 5 – Applied").
-2. Auto-grade MCQ; for code/open responses, use lightweight checks or AI rubric scoring with human-review fallbacks.
-3. Show explanations after each question; offer "ask tutor" for deeper help.
-4. Adaptation: accelerate to challenge if basics are strong; inject remediation if errors repeat.
-
-### Engineering Tasks
-- Build quiz player UI (panel/modal) with keyboard navigation and progress bar.
-- Implement scoring + feedback pipeline; log results to mistake history.
-- Tutor hooks to recommend quizzes when gaps are detected and to explain misses.
-
-## 5. Milestones & Deliverables
-- **M1 (Week 1-2)**: AVR worker scaffold, compile API (Uno/Nano), Monaco error surfacing, basic LED/serial UI wiring.
-- **M2 (Week 2-3)**: Full AVR simulation loop, run/pause/reset, pin-driven DOM updates, watchdog, improved serial monitor.
-- **M3 (Week 3-4)**: AI navigation endpoint + UI, content metadata schema, saved journeys.
-- **M4 (Week 4-5)**: Tutor event bus, rule-based hints, AI-backed explanations with consent + mistake log.
-- **M5 (Week 5-6)**: Quiz player revamp, scaffolded bank schema, tutor-linked feedback, initial adaptive logic.
-- **M6 (6+)**: ESP32 WebAssembly emulator proof-of-concept and integration behind feature flag.
+## 4. Security and Operational Considerations
+- Secure compilation/emulation sandboxes; scrub PII from prompts and use HTTPS for API calls.
+- Respect per-user isolation for tutor context and data; allow opting out of mistake history.
+- Monitor performance and costs: cache compile results, throttle AI usage, and log simulator/tutor events for observability.
