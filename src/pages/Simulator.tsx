@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Bug, Activity } from "lucide-react";
+import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Brain, AlertTriangle } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SimulatorCanvas } from "@/components/simulator/SimulatorCanvas";
-import { TelemetryPanel } from "@/components/simulator/TelemetryPanel";
-import { CodeEditor } from "@/components/simulator/CodeEditor";
-import { useSimulator } from "@/hooks/useSimulator";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const defaultCode = `// Arduino-style robot code
 void setup() {
@@ -57,15 +56,22 @@ const Simulator = () => {
   const [serialOutput, setSerialOutput] = useState<string[]>([]);
   const [ledState, setLedState] = useState(false);
   const [board, setBoard] = useState<keyof typeof boardPresets>("arduino-uno");
-  const [compileFeedback, setCompileFeedback] = useState<{ ok: boolean; errors: string[]; warnings: string[] } | null>(null);
+  const [simulatorError, setSimulatorError] = useState<string | null>(null);
+  const [aiHint, setAiHint] = useState<string>("");
+  const [isHintLoading, setIsHintLoading] = useState(false);
 
-  const { isRunning, telemetry, startSimulation, stopSimulation, resetSimulation, updateTelemetry } = useSimulator();
-  const telemetryRef = useRef(telemetry);
-
-  const simInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const ledInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { user } = useAuth();
 
   const currentBoard = useMemo(() => boardPresets[board], [board]);
+
+  const usedPins = useMemo(() => {
+    const matches = Array.from(code.matchAll(/\b(?:pinMode|digitalWrite|analogWrite)\s*\(\s*([A-Za-z0-9_]+)\s*,/g));
+    return matches.map(match => {
+      const pin = match[1].toString().toUpperCase();
+      if (/^\d+$/.test(pin)) return `D${pin}`;
+      return pin;
+    });
+  }, [code]);
 
   useEffect(() => {
     telemetryRef.current = telemetry;
@@ -121,46 +127,59 @@ const Simulator = () => {
     }
   };
 
-  const handleRun = () => {
-    const compilation = analyzeSketch(code);
-    setCompileFeedback(compilation);
+  const analyzeCodeForErrors = (sketch: string) => {
+    if (!sketch.includes("setup")) return "Sketch is missing a setup() function.";
+    if (!sketch.includes("loop")) return "Sketch is missing a loop() function.";
 
-    clearTimers();
+    const opens = (sketch.match(/{/g) || []).length;
+    const closes = (sketch.match(/}/g) || []).length;
+    if (opens !== closes) return "Unbalanced braces detected—check your curly brackets.";
 
-    if (!compilation.ok) {
-      stopSimulation();
-      setLedState(false);
-      appendSerial("⛔ Build failed: " + compilation.errors.join(" · "));
-      return;
-    }
+    return null;
+  };
 
-    startSimulation();
-    appendSerial(`[Boot] ${currentBoard.name} connected`);
-    appendSerial("[Build] Sketch verified ✔");
-    compilation.warnings.forEach((w) => appendSerial(`⚠ Warning: ${w}`));
-    appendSerial("[Loop] Execution started...");
+  const requestAiHint = async (errorMessage: string) => {
+    setIsHintLoading(true);
+    setAiHint("");
 
-    let tick = 0;
-    simInterval.current = setInterval(() => {
-      tick += 1;
-      const snapshot = telemetryRef.current;
-      const left = Math.sin(tick / 6) * (compilation.profile.motorCommands ? 0.9 : 0.3);
-      const right = Math.cos(tick / 6) * (compilation.profile.motorCommands ? 0.9 : 0.3);
+    const prompt = `You are an encouraging robotics tutor. A student simulator run failed. Share short guiding questions and hints only—do not reveal the full fix. Error: ${errorMessage}. Code:\n\n${code}`;
 
-      updateTelemetry({
-        leftMotor: left,
-        rightMotor: right,
-        rotation: snapshot.rotation + 0.015 * (compilation.profile.motorCommands ? 1 : 0.4),
-        position: [
-          snapshot.position[0] + left * 0.02,
-          snapshot.position[1],
-          snapshot.position[2] + right * 0.02,
-        ],
-        sensors: { ultrasonic: Math.max(0.15, 2 - (Math.abs(left) + Math.abs(right))) },
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-tutor', {
+        body: {
+          prompt,
+          userId: user?.id,
+          action: 'chat'
+        }
       });
 
-      if (compilation.profile.usesSerial) {
-        appendSerial(`[Serial] Tick ${tick} | motors ${left.toFixed(2)}/${right.toFixed(2)}`);
+      if (error) throw error;
+      setAiHint(data.response || "Let's walk through the issue together.");
+    } catch (err: any) {
+      console.error('AI hint error', err);
+      toast.error("AI tutor couldn't analyze the error right now.");
+    } finally {
+      setIsHintLoading(false);
+    }
+  };
+
+  const handleRun = () => {
+    if (!isRunning) {
+      const detectedError = analyzeCodeForErrors(code);
+      if (detectedError) {
+        setSimulatorError(detectedError);
+        setSerialOutput((prevOutput) => [...prevOutput, `⚠️ ${detectedError}`]);
+        requestAiHint(detectedError);
+        return;
+      }
+      setSimulatorError(null);
+      setAiHint("");
+    }
+
+    setIsRunning((prev) => {
+      const next = !prev;
+      if (next) {
+        setSerialOutput((prevOutput) => [...prevOutput, "▶ Simulation started"]);
       }
       if (compilation.profile.ultrasonicReads && tick % 3 === 0) {
         appendSerial(`[Sensor] Ultrasonic ${telemetry.sensors.ultrasonic.toFixed(2)}m`);
@@ -179,7 +198,8 @@ const Simulator = () => {
     resetSimulation();
     setLedState(false);
     setSerialOutput([]);
-    setCompileFeedback(null);
+    setSimulatorError(null);
+    setAiHint("");
   };
 
   const handlePause = () => {
@@ -282,7 +302,43 @@ const Simulator = () => {
                       <Zap className="h-3 w-3" /> 5V rail
                     </span>
                   </div>
-                  <SimulatorCanvas telemetry={telemetry} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-black/30 rounded-lg p-4 border border-white/10 shadow-inner">
+                      <div className="text-white/80 text-xs mb-2">Digital Pins</div>
+                      <div className="grid grid-cols-5 gap-2 text-[10px] text-white/90">
+                        {[...Array(currentBoard.lanes).keys()].map((lane) => (
+                          <div
+                            key={lane}
+                            className={`px-2 py-1 rounded border text-center transition-colors ${
+                              usedPins.includes(`D${lane + 2}`)
+                                ? "bg-emerald-500/70 border-emerald-200 text-white shadow-glow-cyan"
+                                : "bg-white/10 border-white/5"
+                            }`}
+                          >
+                            D{lane + 2}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-black/30 rounded-lg p-4 border border-white/10 shadow-inner">
+                      <div className="text-white/80 text-xs mb-2">Power & Analog</div>
+                      <div className="flex flex-wrap gap-2 text-[10px] text-white/90">
+                        {["5V", "3V3", "GND", "VIN", "A0", "A1", "A2", "A3", "A4", "A5"].map((label) => (
+                          <div
+                            key={label}
+                            className={`px-2 py-1 rounded border transition-colors ${
+                              usedPins.includes(label)
+                                ? "bg-emerald-500/70 border-emerald-200 text-white shadow-glow-cyan"
+                                : "bg-white/10 border-white/5"
+                            }`}
+                          >
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-white/80">Highlighted pins show what your code is touching.</p>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full shadow-lg border-4 border-white/40 transition-all duration-300 ${ledState ? "bg-yellow-300 shadow-glow-cyan" : "bg-white/20"}`} />
                     <div className="text-white text-sm">
@@ -307,15 +363,30 @@ const Simulator = () => {
               </div>
             </Card>
 
-            <Card className="p-6 glass-card">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold">Live Telemetry</h2>
-                  <p className="text-xs text-muted-foreground">Motors and sensors update when the sketch is valid.</p>
-                </div>
-                <div className="text-xs px-3 py-1 rounded-full border border-primary/40 text-primary bg-primary/10">{boardPresets[board].name}</div>
+            <Card className="p-6 glass-card space-y-3">
+              <div className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold">AI Tutor Coach</h2>
               </div>
-              <TelemetryPanel telemetry={telemetry} />
+              {simulatorError ? (
+                <div className="flex items-start gap-2 text-amber-600 text-sm">
+                  <AlertTriangle className="h-4 w-4 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Detected issue</p>
+                    <p>{simulatorError}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Run your sketch to get proactive coaching when something fails.</p>
+              )}
+
+              {isHintLoading ? (
+                <p className="text-sm text-muted-foreground">AI tutor is reviewing your code…</p>
+              ) : aiHint ? (
+                <div className="rounded-md bg-muted/50 border border-border/50 p-3 text-sm whitespace-pre-wrap">
+                  {aiHint}
+                </div>
+              ) : null}
             </Card>
           </div>
         </div>
