@@ -116,6 +116,15 @@ const extractSerialMessages = (source: string) => {
   return messages.slice(0, 5);
 };
 
+const initialTelemetry: Telemetry = {
+  position: [0, 0.05, 0],
+  rotation: 0,
+  leftMotor: 0,
+  rightMotor: 0,
+  sensors: { ultrasonic: 2 },
+  timestamp: Date.now(),
+};
+
 const Simulator = () => {
   const { isRunning, telemetry, startSimulation, stopSimulation, resetSimulation, executeCode } = useSimulator();
   const telemetryRef = useRef(telemetry);
