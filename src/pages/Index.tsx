@@ -4,7 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Navigation from "@/components/Navigation";
 import CollaborationDialog from "@/components/CollaborationDialog";
-import { Zap, Target, Users, TrendingUp, Sparkles, Rocket, Mail, ArrowRight, Star } from "lucide-react";
+import {
+  Zap,
+  Target,
+  Users,
+  TrendingUp,
+  Sparkles,
+  Rocket,
+  Mail,
+  ArrowRight,
+  Star,
+  Compass,
+  Workflow,
+  BrainCircuit,
+  ShieldCheck,
+  Activity,
+  Trophy,
+} from "lucide-react";
 import heroImage from "@/assets/hero-robotics.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCollaboration } from "@/hooks/useCollaboration";
@@ -35,6 +51,42 @@ const Index = () => {
       icon: TrendingUp,
       title: "Level Up Skills",
       description: "Monitor your competencies in coding, electronics, and engineering with skill meters.",
+    },
+  ];
+
+  const blueprintSteps = [
+    {
+      icon: Compass,
+      title: "Choose Your Mission",
+      description: "Pick a robotics focus area and we’ll scaffold a personalized learning path with milestones.",
+    },
+    {
+      icon: Workflow,
+      title: "Build & Iterate",
+      description: "Work through interactive lessons, simulations, and collaborative projects with mentor feedback.",
+    },
+    {
+      icon: Trophy,
+      title: "Earn & Showcase",
+      description: "Collect XP, unlock badges, and share your robotics portfolio as you level up.",
+    },
+  ];
+
+  const trustSignals = [
+    {
+      icon: BrainCircuit,
+      title: "AI-Powered Guidance",
+      description: "Adaptive hints and an AI tutor keep you unblocked while reinforcing robotics fundamentals.",
+    },
+    {
+      icon: Activity,
+      title: "Progress You Can See",
+      description: "Dashboards, XP widgets, and level ladders make every learning win visible.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Reliable Community",
+      description: "Moderated resources, verified projects, and safe collaboration spaces you can trust.",
     },
   ];
 
@@ -179,6 +231,80 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Blueprint Section */}
+      <section className="py-24 px-4 relative">
+        <div className="container mx-auto">
+          <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-12 items-start">
+            <div className="space-y-6">
+              <div className="inline-block px-4 py-2 glass-card rounded-full mb-2">
+                <span className="text-sm font-medium text-primary">How RoboJourney Works</span>
+              </div>
+              <h2 className="text-5xl font-bold leading-tight">
+                A clear blueprint for becoming a robotics leader
+              </h2>
+              <p className="text-lg text-muted-foreground leading-relaxed">
+                Whether you are exploring sensors or shipping autonomous builds, we guide you through every phase with
+                structure, accountability, and momentum you can actually feel in the product.
+              </p>
+
+              <div className="space-y-4">
+                {blueprintSteps.map((step, index) => (
+                  <Card
+                    key={step.title}
+                    className="p-6 glass-card glow-border flex gap-4 items-start animate-reveal"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    <div className="p-3 rounded-2xl premium-gradient">
+                      <step.icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-primary mb-1">Step {index + 1}</div>
+                      <h3 className="text-xl font-semibold mb-1">{step.title}</h3>
+                      <p className="text-muted-foreground leading-relaxed">{step.description}</p>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            <Card className="p-10 glass-card glow-border sticky top-10 animate-scale-in">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary mb-6">
+                <Activity className="h-4 w-4" />
+                Live platform momentum
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10">
+                  <div className="text-sm text-muted-foreground">Learners building today</div>
+                  <div className="text-3xl font-bold text-primary mt-1">
+                    {platformStats?.totalLearners ?? 0}+
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">Active profiles and counting</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-secondary/10 to-accent/10">
+                  <div className="text-sm text-muted-foreground">Robotics projects shipped</div>
+                  <div className="text-3xl font-bold text-secondary mt-1">
+                    {platformStats?.totalProjects ?? 0}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">Documented builds on the platform</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-accent/10 to-primary/10">
+                  <div className="text-sm text-muted-foreground">Curated resources</div>
+                  <div className="text-3xl font-bold text-accent mt-1">
+                    {platformStats?.totalResources ?? 0}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">Mentor-approved learning assets</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-muted/20 to-primary/5">
+                  <div className="text-sm text-muted-foreground">Weekly XP earned</div>
+                  <div className="text-3xl font-bold text-foreground mt-1">25,000+</div>
+                  <p className="text-sm text-muted-foreground mt-1">Learners progressing every week</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* Collaboration Section - Premium */}
       <section className="py-32 px-4 relative">
         <div className="absolute inset-0 premium-gradient" />
@@ -246,6 +372,37 @@ const Index = () => {
               </p>
             </Card>
           )}
+        </div>
+      </section>
+
+      {/* Trust Section */}
+      <section className="py-24 px-4 relative">
+        <div className="container mx-auto">
+          <div className="text-center mb-14 space-y-4">
+            <div className="inline-block px-4 py-2 glass-card rounded-full">
+              <span className="text-sm font-medium text-primary">Built for real progress</span>
+            </div>
+            <h2 className="text-5xl font-bold">Why learners stick with RoboJourney</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              We combine community, coaching, and a transparent XP system so you always know what to do next.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {trustSignals.map((signal, index) => (
+              <Card
+                key={signal.title}
+                className="p-8 glass-card glow-border hover-lift animate-scale-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="inline-flex p-4 rounded-2xl premium-gradient mb-5">
+                  <signal.icon className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="text-2xl font-semibold mb-2">{signal.title}</h3>
+                <p className="text-muted-foreground leading-relaxed">{signal.description}</p>
+              </Card>
+            ))}
+          </div>
         </div>
       </section>
 
