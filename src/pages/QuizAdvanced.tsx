@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
+import { Progress } from "@/components/ui/progress";
 
 interface QuizQuestion {
   id: string;
@@ -55,6 +56,7 @@ export default function QuizAdvanced() {
   }, [articleId]);
 
   const currentQ = questions[currentIndex];
+  const progressPercent = questions.length > 0 ? Math.round(((currentIndex + 1) / questions.length) * 100) : 0;
 
   const handleAnswer = (idx: number) => {
     if (!currentQ || feedback) return;
@@ -111,15 +113,58 @@ export default function QuizAdvanced() {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-sm text-muted-foreground">
-              Question {currentIndex + 1} of {questions.length}
+          <div className="mb-6 grid gap-4 md:grid-cols-[1.4fr,1fr]">
+            <div className="p-4 rounded-2xl bg-card border border-border shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground tracking-[0.2em]">Question {currentIndex + 1} / {questions.length}</p>
+                  <h2 className="text-xl font-semibold">Session Pulse</h2>
+                </div>
+                <div className="text-xs px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/40">
+                  {currentQ?.difficulty || "adaptive"}
+                </div>
+              </div>
+              <div className="mt-3">
+                <Progress value={progressPercent} className="h-2" />
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>Progress</span>
+                  <span>{progressPercent}% complete</span>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
+                  <p className="text-xs text-muted-foreground">XP</p>
+                  <p className="text-lg font-semibold">{stats.xp}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-200/30">
+                  <p className="text-xs text-muted-foreground">Streak</p>
+                  <p className="text-lg font-semibold text-emerald-400">{stats.streak}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-200/30">
+                  <p className="text-xs text-muted-foreground">Correct</p>
+                  <p className="text-lg font-semibold text-emerald-300">{stats.correct}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-red-500/5 border border-red-200/30">
+                  <p className="text-xs text-muted-foreground">Missed</p>
+                  <p className="text-lg font-semibold text-red-300">{stats.incorrect}</p>
+                </div>
+              </div>
             </div>
-            <div className="flex gap-4 text-sm">
-              <div>XP: {stats.xp}</div>
-              <div>Streak: {stats.streak}</div>
-              <div className="text-green-500">✓ {stats.correct}</div>
-              <div className="text-red-500">✗ {stats.incorrect}</div>
+
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/10 via-secondary/10 to-background border border-border/60 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">AI Quiz Coach</p>
+              <h3 className="text-lg font-semibold">Stay accurate & fast</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                The coach watches your streak and nudges you to review when accuracy dips. Keep momentum by pausing to scan explanations.
+              </p>
+              <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Adaptive difficulty adjusts every two correct answers.
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-secondary" /> Finish strong by hitting 90%+ in the next two items.
+                </div>
+              </div>
             </div>
           </div>
 
@@ -198,13 +243,25 @@ export default function QuizAdvanced() {
           </AnimatePresence>
 
           {showArticle && currentQ && (
-            <motion.div 
-              initial={{ opacity: 0, y: 8 }} 
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-4 p-4 rounded-xl bg-card border border-border"
             >
               <h4 className="font-semibold mb-2">Explanation</h4>
               <p className="text-sm text-muted-foreground">{currentQ.explanation}</p>
+              {article?.wrong_vs_right && (
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <div className="p-3 rounded-lg bg-red-500/5 border border-red-200/30">
+                    <p className="text-xs uppercase tracking-wide text-red-200">Common mistake</p>
+                    <p className="text-sm text-muted-foreground">{article.wrong_vs_right.wrong}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-200/30">
+                    <p className="text-xs uppercase tracking-wide text-emerald-200">Do this instead</p>
+                    <p className="text-sm text-muted-foreground">{article.wrong_vs_right.right}</p>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </div>

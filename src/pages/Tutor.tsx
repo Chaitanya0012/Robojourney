@@ -35,9 +35,11 @@ export default function Tutor() {
     setIsLoading(true);
 
     try {
+      const coachingPrompt = `You are a robotics tutor who uses Socratic questioning and never gives the final answer outright. Ask short guiding questions, suggest approaches, and encourage the student to reason about their own code or math. Keep responses concise but inquisitive. Student message: ${input}`;
+
       const { data, error } = await supabase.functions.invoke('ai-tutor', {
-        body: { 
-          prompt: input,
+        body: {
+          prompt: coachingPrompt,
           userId: user.id,
           action: 'chat'
         }
@@ -70,6 +72,14 @@ export default function Tutor() {
           <p className="text-muted-foreground text-lg">
             Get guided feedback that helps you spot mistakes, recall concepts, and learn by doing—never just copied answers.
           </p>
+          <div className="mt-4 p-4 rounded-lg border border-primary/30 bg-primary/5 text-sm space-y-2">
+            <p className="font-semibold text-primary">How this tutor helps you learn</p>
+            <ul className="list-disc list-inside text-muted-foreground space-y-1">
+              <li>Expect guiding questions and hints instead of full answers.</li>
+              <li>Share what you tried; it will point out mistakes and prompt recall.</li>
+              <li>Use it to review concepts, not to copy solutions.</li>
+            </ul>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">

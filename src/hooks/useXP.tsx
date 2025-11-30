@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export interface UserXP {
   id: string;
@@ -22,7 +22,7 @@ export interface XPActivity {
 }
 
 // XP thresholds for each level
-export const LEVEL_THRESHOLDS = [
+export const DEFAULT_LEVEL_THRESHOLDS = [
   { level: 1, xp: 0, title: "Novice Robot Builder" },
   { level: 2, xp: 500, title: "Mechanic Apprentice" },
   { level: 3, xp: 1500, title: "Sensor Specialist" },
@@ -36,7 +36,7 @@ export const LEVEL_THRESHOLDS = [
 ];
 
 // XP rewards for different activities
-export const XP_REWARDS = {
+export const DEFAULT_XP_REWARDS = {
   watch_video: 100,
   complete_activity: 200,
   finish_project: 1000,
@@ -49,9 +49,35 @@ export const XP_REWARDS = {
   daily_login: 100,
 };
 
-export const calculateLevel = (totalXP: number): number => {
+export interface XPConfig {
+  xp_rewards: typeof DEFAULT_XP_REWARDS;
+  levels: typeof DEFAULT_LEVEL_THRESHOLDS;
+  badges: Array<{
+    id: string;
+    name: string;
+    description: string;
+    tier: string;
+    icon: string;
+  }>;
+}
+
+export const useXPConfig = () => {
+  return useQuery({
+    queryKey: ["xp-config"],
+    queryFn: async () => {
+      const response = await fetch("/xp-config.json");
+      if (!response.ok) {
+        throw new Error("Failed to load XP config");
+      }
+      return (await response.json()) as XPConfig;
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+};
+
+export const calculateLevel = (totalXP: number, thresholds = DEFAULT_LEVEL_THRESHOLDS): number => {
   let level = 1;
-  for (const threshold of LEVEL_THRESHOLDS) {
+  for (const threshold of thresholds) {
     if (totalXP >= threshold.xp) {
       level = threshold.level;
     } else {
@@ -61,20 +87,23 @@ export const calculateLevel = (totalXP: number): number => {
   return level;
 };
 
-export const getLevelTitle = (level: number): string => {
-  const levelData = LEVEL_THRESHOLDS.find(l => l.level === level);
+export const getLevelTitle = (level: number, thresholds = DEFAULT_LEVEL_THRESHOLDS): string => {
+  const levelData = thresholds.find(l => l.level === level);
   return levelData?.title || "Novice Robot Builder";
 };
 
-export const getNextLevelXP = (currentLevel: number): number => {
-  const nextLevel = LEVEL_THRESHOLDS.find(l => l.level === currentLevel + 1);
-  return nextLevel?.xp || LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1].xp;
+export const getNextLevelXP = (currentLevel: number, thresholds = DEFAULT_LEVEL_THRESHOLDS): number => {
+  const nextLevel = thresholds.find(l => l.level === currentLevel + 1);
+  return nextLevel?.xp || thresholds[thresholds.length - 1].xp;
 };
 
 export const useXP = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: xpConfig } = useXPConfig();
+  const levelThresholds = xpConfig?.levels ?? DEFAULT_LEVEL_THRESHOLDS;
+  const xpRewards = xpConfig?.xp_rewards ?? DEFAULT_XP_REWARDS;
 
   const { data: userXP, isLoading } = useQuery({
     queryKey: ['user-xp', user?.id],
@@ -134,7 +163,7 @@ export const useXP = () => {
       if (!user || !userXP) throw new Error('Not authenticated');
 
       const newTotalXP = userXP.total_xp + xpAmount;
-      const newLevel = calculateLevel(newTotalXP);
+      const newLevel = calculateLevel(newTotalXP, levelThresholds);
       const leveledUp = newLevel > userXP.current_level;
 
       // Update user XP
@@ -169,7 +198,7 @@ export const useXP = () => {
       if (leveledUp) {
         toast({
           title: "🎉 Level Up!",
-          description: `Congratulations! You've reached Level ${newLevel}: ${getLevelTitle(newLevel)}`,
+          description: `Congratulations! You've reached Level ${newLevel}: ${getLevelTitle(newLevel, levelThresholds)}`,
         });
       }
     },
@@ -182,10 +211,10 @@ export const useXP = () => {
     },
   });
 
-  const currentLevelXP = userXP ? LEVEL_THRESHOLDS.find(l => l.level === userXP.current_level)?.xp || 0 : 0;
-  const nextLevelXP = userXP ? getNextLevelXP(userXP.current_level) : 500;
-  const progressToNextLevel = userXP 
-    ? ((userXP.total_xp - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100 
+  const currentLevelXP = userXP ? levelThresholds.find(l => l.level === userXP.current_level)?.xp || 0 : 0;
+  const nextLevelXP = userXP ? getNextLevelXP(userXP.current_level, levelThresholds) : 500;
+  const progressToNextLevel = userXP
+    ? ((userXP.total_xp - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100
     : 0;
 
   return {
@@ -193,10 +222,10 @@ export const useXP = () => {
     activities: activities || [],
     isLoading,
     addXP: addXP.mutate,
-    currentLevelTitle: userXP ? getLevelTitle(userXP.current_level) : "Novice Robot Builder",
+    currentLevelTitle: userXP ? getLevelTitle(userXP.current_level, levelThresholds) : "Novice Robot Builder",
     progressToNextLevel,
     nextLevelXP,
-    LEVEL_THRESHOLDS,
-    XP_REWARDS,
+    levelThresholds,
+    xpRewards,
   };
 };
