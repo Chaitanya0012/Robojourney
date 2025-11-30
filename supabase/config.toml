@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.ai-navigator]
 verify_jwt = false
+
+[functions.project-navigator]
+verify_jwt = false

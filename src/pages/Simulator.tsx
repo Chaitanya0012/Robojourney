@@ -9,7 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSimulator } from "@/hooks/useSimulator";
+import { useSimulator, Telemetry } from "@/hooks/useSimulator";
+
+type BoardConfig = {
+  name: string;
+  label: string;
+  lanes: number;
+  color: string;
+};
 
 const defaultCode = `// Arduino-style robot code\nvoid setup() {\n  pinMode(LED_BUILTIN, OUTPUT);\n  pinMode(2, OUTPUT); // Motor A\n  pinMode(3, OUTPUT); // Motor B\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  setMotor(0.5, 0.5);\n  await sleep(500);\n  digitalWrite(LED_BUILTIN, HIGH);\n  Serial.println("Moving forward");\n}`;
 
@@ -144,6 +151,8 @@ const Simulator = () => {
     ledUsage: false,
     script: ["Awaiting first run"]
   });
+  const [isTutorAnalyzing, setIsTutorAnalyzing] = useState(false);
+  const [tutorGuidance, setTutorGuidance] = useState<string | null>(null);
 
   const currentBoard = useMemo(() => boardPresets[board], [board]);
 
@@ -169,7 +178,8 @@ const Simulator = () => {
     }
 
     const signals: string[] = [];
-    if (compiledMessages.length > 0) signals.push("serial");
+    const serialMessages = extractSerialMessages(code);
+    if (serialMessages.length > 0 && !serialMessages[0].includes("Serial is quiet")) signals.push("serial");
     if (/readSensor\s*\(\s*"ultrasonic"/i.test(code)) signals.push("ultrasonic");
 
     return errors;
@@ -440,6 +450,7 @@ const Simulator = () => {
                 >
                   {isRunning ? "Running" : compileStatus.state === "error" ? "Build errors" : compileStatus.state === "ok" ? "Validated" : "Idle"}
                 </div>
+              </div>
 
               <div className="space-y-2 text-sm">
                 {diagnostics.errors.length === 0 ? (
@@ -477,23 +488,19 @@ const Simulator = () => {
                 <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
                   Review the errors above and fix them to continue.
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  When the simulator spots an issue, the AI tutor will ask guiding questions instead of giving the answer.
-                </p>
-                {isTutorAnalyzing ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                    <span>AI tutor is reviewing your code...</span>
-                  </div>
-                ) : tutorGuidance ? (
-                  <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-sm whitespace-pre-wrap">
-                    {tutorGuidance}
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">Run the simulator to see guided debugging tips here.</div>
-                )}
-              </Card>
-            </div>
+              ) : isTutorAnalyzing ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span>AI tutor is reviewing your code...</span>
+                </div>
+              ) : tutorGuidance ? (
+                <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-sm whitespace-pre-wrap">
+                  {tutorGuidance}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">Run the simulator to see guided debugging tips here.</div>
+              )}
+            </Card>
           </div>
         </div>
 
