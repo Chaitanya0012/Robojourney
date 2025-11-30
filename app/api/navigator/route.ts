@@ -1,177 +1,192 @@
-import { NextResponse } from "next/server";
-import { chatCompletion, ChatMessage, ChatTool } from "../../../lib/openai";
-import { recallMemory, saveMemory } from "../../../lib/memory";
-import { supabaseClient } from "../../../lib/supabase";
-import { getSimulatorStateTool } from "../../../tools/getSimulatorState";
-import { webSearchTool } from "../../../tools/webSearch";
+import { NextRequest, NextResponse } from "next/server";
+import { getOpenAIClient, type NavigatorModel } from "../../../lib/openaiClient";
+import { supabaseClient } from "../../../lib/supabaseClient";
+import { articles } from "../../../lib/articles";
+import { quizzes } from "../../../lib/quizzes";
 
 const SYSTEM_PROMPT = `<<<SYSTEM_PROMPT_START>>>
+You are "AI Navigator", a robotics learning guide that controls the website layout and navigation.
 
-You are “Project Navigator”, an expert AI project mentor.  
-You understand the user, diagnose their proficiency, research their tools, create a custom plan, and guide them live while preventing mistakes.  
-You output ONLY valid JSON with:
+Your goals:
+- Understand the user’s goal and level.
+- Build and maintain a personalized learning path (articles, quizzes, projects).
+- Decide what the user should see NEXT.
+- Reduce friction: minimize manual scrolling and searching for content.
+- Make the site feel like it is tailored entirely to this one person.
+
+You must ALWAYS respond with a single JSON object with the structure:
+
 {
-  "mode": "",
-  "message": "",
-  "questions": [],
-  "analysis": {},
-  "plan": [],
-  "guidance": {}
+  "ui_action": "NAVIGATE | UPDATE_LAYOUT | UPDATE_PATH | ASK_USER | IDLE",
+  "ui_payload": { ... },
+  "message": "string to show in the chat bubble",
+  "personalization": {
+    "recommended_articles": [],
+    "recommended_quizzes": [],
+    "next_step": { "type": "", "id": "" }
+  },
+  "path_update": {
+    "path": []
+  }
 }
 
-Your modes:
-- assessment_questions
-- assessment_feedback
-- project_plan
-- live_guidance
+Rules:
+- NAVIGATE: choose which page/slug the frontend should route to next.
+- UPDATE_LAYOUT: adjust which sections should be visible/emphasized.
+- UPDATE_PATH: create or modify an ordered list of content (learning path).
+- ASK_USER: ask clarifying questions if goal/level is unclear.
+- IDLE: do nothing structural; just answer.
 
-guidance contains:
-- warnings[]
-- best_practices[]
-- meta_cognition_prompts[]
-- next_priority
+You have access to:
+- A list of available articles (with difficulty, tags, prerequisites).
+- A list of available quizzes (with difficulty, tags, linked article).
+- The user’s preferences and recent results.
 
-Think like a robotics expert with experience in Arduino, ESP32, sensors, motors, robotics logic, simulators, PID, line followers, obstacle bots, arm robots, etc.
+Behaviors:
+- For beginners: start with “intro to robotics”, “what is a robot”, “motors basics”, simple quizzes.
+- For intermediate: focus on projects (line follower, obstacle avoider) with supporting theory.
+- For advanced: more projects, algorithms (PID, mapping, state machines), less hand-holding.
 
+Personalization:
+- "recommended_articles": 3–6 highly relevant next articles.
+- "recommended_quizzes": up to 3 relevant quizzes.
+- "next_step": single main recommended action.
+
+You are responsible for making the website feel like it reconfigures itself based on your decisions.
+
+Never output plain text. Only JSON.
 <<<SYSTEM_PROMPT_END>>>`;
 
-const toolsWithHandlers = [getSimulatorStateTool, webSearchTool];
+type NavigatorRequest = {
+  userMessage?: string;
+  mode?: string;
+  projectId?: string;
+  userId?: string;
+};
 
-async function callToolsIfNeeded(
-  initialMessage: ChatMessage | undefined,
-  messages: ChatMessage[],
-  toolDefs: ChatTool[]
-): Promise<ChatMessage | undefined> {
-  let message = initialMessage;
-  if (!message) return undefined;
+const FALLBACK_OUTPUT: NavigatorModel = {
+  ui_action: "UPDATE_LAYOUT",
+  ui_payload: { showRecommendations: true },
+  message: "I set up a starter path: begin with Intro to Robotics, then Motors Basics, followed by the Motors quiz.",
+  personalization: {
+    recommended_articles: [
+      { id: "intro_robotics", reason: "Foundational overview" },
+      { id: "motors_basics", reason: "Learn how robots move" },
+      { id: "sensors_basics", reason: "Prep for projects" },
+    ],
+    recommended_quizzes: [{ id: "intro_robotics_quiz", reason: "Check understanding" }],
+    next_step: { type: "article", id: "intro_robotics" },
+  },
+  path_update: {
+    path: ["intro_robotics", "motors_basics", "motors_basics_quiz", "line_follower_concept"],
+  },
+};
 
-  if (message.tool_calls?.length) {
-    messages.push(message);
-
-    for (const toolCall of message.tool_calls) {
-      const tool = toolsWithHandlers.find((t) => t.name === toolCall.function.name);
-      if (!tool) continue;
-      try {
-        const args = toolCall.function.arguments
-          ? JSON.parse(toolCall.function.arguments)
-          : {};
-        const result = await tool.handler(args);
-        messages.push({
-          role: "tool",
-          name: tool.name,
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(result),
-        });
-      } catch (error) {
-        messages.push({
-          role: "tool",
-          name: tool.name,
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({ error: (error as Error).message }),
-        });
-      }
-    }
-
-    const followUp = await chatCompletion(messages, toolDefs);
-    message = followUp.choices[0]?.message;
+async function fetchUserPreferences(userId: string) {
+  try {
+    const { data } = await supabaseClient
+      .from("user_preferences")
+      .select("experience_level, goal, preferred_pace")
+      .eq("user_id", userId)
+      .single();
+    return data;
+  } catch (error) {
+    console.error("Failed to fetch preferences", error);
+    return null;
   }
-
-  return message;
 }
 
-export async function POST(req: Request) {
+function buildContextBlob(preferences: unknown, mode?: string) {
+  return {
+    preferences,
+    mode: mode || "live",
+    catalog: {
+      articles: articles.map((a) => ({
+        id: a.id,
+        title: a.title,
+        difficulty: a.difficulty,
+        tags: a.tags,
+        prerequisites: a.prerequisites,
+      })),
+      quizzes: quizzes.map((q) => ({
+        id: q.id,
+        article_id: q.article_id,
+        title: q.title,
+        difficulty: q.difficulty,
+      })),
+    },
+    recent_results: [],
+  };
+}
+
+export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userMessage, projectId, mode } = body as {
-      userMessage?: string;
-      projectId?: string;
-      mode?: string;
-      userId?: string;
-    };
+    const body = (await req.json()) as NavigatorRequest;
+    const userId = body.userId || "demo-user";
+    const preferences = await fetchUserPreferences(userId);
+    const contextBlob = buildContextBlob(preferences, body.mode);
 
-    if (!userMessage || !projectId) {
-      return NextResponse.json(
-        { error: "userMessage and projectId are required" },
-        { status: 400 }
-      );
+    const client = getOpenAIClient();
+    const shouldCallOpenAI = Boolean(process.env.OPENAI_API_KEY);
+
+    if (!shouldCallOpenAI) {
+      return NextResponse.json(FALLBACK_OUTPUT);
     }
 
-    const userId = body.userId ?? "anonymous";
-
-    let recalledMemory: string[] = [];
-    try {
-      recalledMemory = await recallMemory(projectId, userMessage);
-    } catch (error) {
-      console.error("Memory recall failed", error);
-    }
-
-    const planResult = await supabaseClient
-      .from("project_plan")
-      .select("title, description, prerequisites, resources")
-      .eq("project_id", projectId)
-      .order("order", { ascending: true });
-
-    const plan =
-      planResult.data?.map((row) => ({
-        title: row.title,
-        description: row.description,
-        prerequisites: row.prerequisites ?? [],
-        resources: row.resources ?? [],
-      })) ?? [];
-
-    const toolDefs: ChatTool[] = toolsWithHandlers.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-    }));
-
-    const messages: ChatMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: JSON.stringify({
-          mode,
-          projectId,
-          userMessage,
-          plan,
-          recalledMemory,
-        }),
-      },
-    ];
-
-    const initialResponse = await chatCompletion(messages, toolDefs);
-    let message = initialResponse.choices[0]?.message;
-
-    message = await callToolsIfNeeded(message, messages, toolDefs);
-
-    const content = message?.content ?? "";
-
-    try {
-      await saveMemory(userId, projectId, userMessage);
-      if (content) {
-        await saveMemory(userId, projectId, content);
-      }
-    } catch (error) {
-      console.error("Failed to save memory", error);
-    }
-
-    let parsed: Record<string, unknown> = {};
-    try {
-      parsed = JSON.parse(content);
-    } catch (error) {
-      parsed = { message: content };
-    }
-
-    return NextResponse.json({
-      ...parsed,
-      plan: (parsed as { plan?: unknown[] }).plan ?? plan,
-      memory: recalledMemory,
+    const completion = await client.chat.completions.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: JSON.stringify({
+            context: contextBlob,
+            userMessage: body.userMessage || "Guide the learner.",
+          }),
+        },
+      ],
+      temperature: 0.4,
     });
+
+    const raw = completion.choices[0]?.message?.content || "";
+    let parsed: NavigatorModel | null = null;
+    try {
+      parsed = JSON.parse(raw) as NavigatorModel;
+    } catch (error) {
+      console.warn("Navigator JSON parse failed; returning fallback", error);
+    }
+
+    const responsePayload = parsed || FALLBACK_OUTPUT;
+
+    if (responsePayload.path_update?.path?.length) {
+      try {
+        await supabaseClient
+          .from("learning_paths")
+          .upsert({ user_id: userId, path: responsePayload.path_update.path, active: true });
+      } catch (error) {
+        console.error("Failed to persist path", error);
+      }
+    }
+
+    try {
+      await supabaseClient
+        .from("personalized_state")
+        .upsert({
+          user_id: userId,
+          recommended_articles: responsePayload.personalization?.recommended_articles || [],
+          recommended_quizzes: responsePayload.personalization?.recommended_quizzes || [],
+          next_step: responsePayload.personalization?.next_step || null,
+        });
+    } catch (error) {
+      console.error("Failed to persist personalization", error);
+    }
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error(error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
