@@ -1,17 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Shield, Bug } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Shield, Bug, Brain, Sparkles } from "lucide-react";
 import Editor from "@monaco-editor/react";
 
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Brain } from "lucide-react";
-import Navigation from "@/components/Navigation";
-import Editor from "@monaco-editor/react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { SimulatorCanvas } from "@/components/simulator/SimulatorCanvas";
 
 const defaultCode = `// Arduino-style robot code
 void setup() {
@@ -28,8 +26,42 @@ type CompileStatus = {
   message: string;
 };
 
+type SimulationState = "idle" | "running" | "paused" | "error";
+
+type Telemetry = {
+  position: [number, number, number];
+  rotation: number;
+  leftMotor: number;
+  rightMotor: number;
+  sensors: {
+    ultrasonic: number;
+  };
+  timestamp: number;
+};
+
 const analogPinLabels = ["A0", "A1", "A2", "A3", "A4", "A5"];
 const powerAndAnalogPins = ["5V", "3V3", "GND", "VIN", ...analogPinLabels];
+
+const boardPresets = {
+  "arduino-uno": {
+    name: "Arduino Uno",
+    label: "UNO R3",
+    lanes: 12,
+    color: "from-slate-800 via-slate-900 to-slate-950",
+  },
+  "arduino-nano": {
+    name: "Arduino Nano",
+    label: "NANO V3",
+    lanes: 10,
+    color: "from-indigo-800 via-indigo-900 to-slate-950",
+  },
+  esp32: {
+    name: "ESP32 DevKit",
+    label: "ESP32",
+    lanes: 16,
+    color: "from-purple-800 via-purple-900 to-slate-950",
+  },
+};
 
 const extractUsedPins = (source: string) => {
   const digitalPins = new Set<number>();
@@ -65,6 +97,15 @@ const extractUsedPins = (source: string) => {
   return { digitalPins: Array.from(digitalPins).sort((a, b) => a - b), analogPins: Array.from(analogPins) };
 };
 
+const initialTelemetry: Telemetry = {
+  position: [0, 0.05, 0],
+  rotation: 0,
+  leftMotor: 0,
+  rightMotor: 0,
+  sensors: { ultrasonic: 2 },
+  timestamp: Date.now(),
+};
+
 const Simulator = () => {
   const { user } = useAuth();
   const [code, setCode] = useState(defaultCode);
@@ -78,8 +119,20 @@ const Simulator = () => {
   const [analogUsedPins, setAnalogUsedPins] = useState<string[]>([]);
   const [tutorGuidance, setTutorGuidance] = useState<string>("");
   const [isTutorAnalyzing, setIsTutorAnalyzing] = useState(false);
+  const [compileStatus, setCompileStatus] = useState<CompileStatus>({
+    state: "idle",
+    message: "Ready to run validation",
+  });
+  const [simulationState, setSimulationState] = useState<SimulationState>("idle");
+  const [telemetry, setTelemetry] = useState<Telemetry>(initialTelemetry);
+  const telemetryRef = useRef<Telemetry>(initialTelemetry);
 
-  const compiledMessages = useMemo(() => extractSerialMessages(code), [code]);
+  const currentBoard = boardPresets[board];
+
+  const digitalWrites = useMemo(
+    () => [...code.matchAll(/digitalWrite\s*\(\s*([A-Za-z0-9_]+)/gi)].map((match) => match[1]),
+    [code]
+  );
 
   const validateCode = () => {
     const errors: string[] = [];
@@ -88,8 +141,8 @@ const Simulator = () => {
       errors.push("Missing setup() function to configure pins.");
     }
 
-    if (!/void\s+loop\s*\(/i.test(code)) {
-      errors.push("Missing loop() function to run repeatedly.");
+    if (!/void\s+loop\s*\(/i.test(code) && !/main\s*\(/i.test(code)) {
+      errors.push("Missing loop() or main() function to run repeatedly.");
     }
 
     const maxDigitalPin = currentBoard.lanes + 1;
@@ -108,17 +161,43 @@ const Simulator = () => {
     return errors;
   };
 
+  const diagnostics = useMemo(() => {
+    const errors = validateCode();
+    const warnings: string[] = [];
+    const signals: string[] = [];
+
+    if (/delay\s*\(\s*1000\s*\)/i.test(code)) {
+      warnings.push("Long delay(1000) detected; this can block the loop.");
+    }
+
+    if (/Serial\.print/gi.test(code)) {
+      signals.push("Serial output");
+    }
+
+    const script = digitalWrites.length
+      ? digitalWrites.map((dw, idx) => `Writing to ${dw} (step ${idx + 1})`)
+      : ["Loop running...", "Monitoring sensors..."];
+
+    return {
+      errors,
+      warnings,
+      signals,
+      ledUsage: digitalWrites.some((dw) => dw.toLowerCase().includes("led_builtin")),
+      script,
+    };
+  }, [analogUsedPins, code, currentBoard.lanes, currentBoard.name, digitalUsedPins, digitalWrites]);
+
   const requestTutorGuidance = async (errors: string[]) => {
     setIsTutorAnalyzing(true);
     setTutorGuidance("");
 
     try {
-      const { data, error } = await supabase.functions.invoke('ai-tutor', {
+      const { data, error } = await supabase.functions.invoke("ai-tutor", {
         body: {
-          prompt: `You are helping a student debug a microcontroller sketch in a virtual simulator. Please DO NOT give the final code or numeric answers. Ask guiding questions and suggest checkpoints so the student can fix issues themselves.\n\nBoard: ${currentBoard.name}\nDetected problems:\n${errors.map((err) => `- ${err}`).join('\n')}\n\nHere is the current code:\n${code}\n\nRespond with 3-5 short prompts that lead the student to the fix, and end with one reflection question.`,
+          prompt: `You are helping a student debug a microcontroller sketch in a virtual simulator. Please DO NOT give the final code or numeric answers. Ask guiding questions and suggest checkpoints so the student can fix issues themselves.\n\nBoard: ${currentBoard.name}\nDetected problems:\n${errors.map((err) => `- ${err}`).join("\n")}\n\nHere is the current code:\n${code}\n\nRespond with 3-5 short prompts that lead the student to the fix, and end with one reflection question.`,
           userId: user?.id,
-          action: 'chat'
-        }
+          action: "chat",
+        },
       });
 
       if (error) throw error;
@@ -138,25 +217,16 @@ const Simulator = () => {
   }, [code]);
 
   useEffect(() => {
-    if (!isRunning) return;
-
-    return {
-      errors,
-      warnings,
-      signals,
-      ledUsage: digitalWrites.some((dw) => dw.toLowerCase().includes("led_builtin")),
-      script,
-    };
-  };
-
-  useEffect(() => {
     telemetryRef.current = telemetry;
   }, [telemetry]);
+
+  useEffect(() => {
+    if (!isRunning) return;
 
     let step = 0;
     const interval = setInterval(() => {
       const message = diagnostics.script[step % diagnostics.script.length];
-      setSerialOutput((prev) => [...prev, message]);
+      setSerialOutput((prev) => [...prev.slice(-24), message]);
       setLedState((prev) => (diagnostics.ledUsage ? !prev : false));
       step += 1;
     }, 900);
@@ -164,11 +234,77 @@ const Simulator = () => {
     return () => clearInterval(interval);
   }, [diagnostics.ledUsage, diagnostics.script, isRunning]);
 
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const interval = setInterval(() => {
+      const snap = telemetryRef.current;
+      setSerialOutput((prev) => [
+        ...prev.slice(-24),
+        `T${new Date().toLocaleTimeString()} :: L:${(snap.leftMotor * 100).toFixed(0)}% R:${(snap.rightMotor * 100).toFixed(
+          0
+        )}% | ultrasonic ${snap.sensors.ultrasonic}m`,
+      ]);
+    }, 700);
+
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const interval = setInterval(() => {
+      setTelemetry((prev) => {
+        const speed = 0.25;
+        const heading = prev.rotation + 0.03;
+        const dx = Math.cos(heading) * speed * 0.02;
+        const dz = Math.sin(heading) * speed * 0.02;
+
+        return {
+          ...prev,
+          position: [prev.position[0] + dx, prev.position[1], prev.position[2] + dz],
+          rotation: heading,
+          sensors: {
+            ultrasonic: Math.max(0.2, Number((prev.sensors.ultrasonic - 0.01).toFixed(3))),
+          },
+          timestamp: Date.now(),
+        };
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (diagnostics.errors.length > 0) {
+      setCompileStatus({ state: "error", message: "Fix the issues before running" });
+      setSimulationState("error");
+    } else {
+      setCompileStatus({ state: "ok", message: "Sketch validated" });
+      setSimulationState(isRunning ? "running" : "idle");
+    }
+  }, [diagnostics.errors.length, isRunning]);
+
+  const handleValidateOnly = () => {
+    const validationErrors = validateCode();
+
+    if (validationErrors.length > 0) {
+      setCompileStatus({ state: "error", message: `${validationErrors.length} issue(s) detected` });
+      setSimulationState("error");
+      setSerialOutput((prev) => [...prev, ...validationErrors.map((err) => `⚠️ ${err}`)]);
+    } else {
+      setCompileStatus({ state: "ok", message: "Sketch validated" });
+      setSimulationState(isRunning ? "running" : "idle");
+      setSerialOutput((prev) => [...prev, "✅ Validation passed"]);
+    }
+  };
+
   const handleRun = async () => {
     const validationErrors = validateCode();
 
     if (validationErrors.length > 0) {
       setIsRunning(false);
+      setSimulationState("error");
       setSerialOutput((prevOutput) => [
         ...prevOutput,
         "⛔ Simulation blocked: fix the issues below",
@@ -181,6 +317,7 @@ const Simulator = () => {
     setTutorGuidance("");
     setIsRunning((prev) => {
       const next = !prev;
+      setSimulationState(next ? "running" : "paused");
       if (next) {
         setSerialOutput((prevOutput) => [...prevOutput, "▶ Simulation started"]);
       }
@@ -190,28 +327,13 @@ const Simulator = () => {
 
   const handleReset = () => {
     setIsRunning(false);
+    setSimulationState("idle");
     setLedState(false);
     setSerialOutput([]);
     setTutorGuidance("");
+    setTelemetry(initialTelemetry);
+    setCompileStatus({ state: "idle", message: "Ready to run validation" });
   };
-
-  useEffect(() => {
-    if (!isRunning) return;
-
-    const interval = setInterval(() => {
-      const snap = telemetryRef.current;
-      setSerialOutput(prev =>
-        [
-          ...prev.slice(-24),
-          `T${new Date().toLocaleTimeString()} :: L:${(snap.leftMotor * 100).toFixed(0)}% R:${(snap.rightMotor * 100).toFixed(
-            0
-          )}% | ultrasonic ${snap.sensors.ultrasonic}m`,
-        ]
-      );
-    }, 700);
-
-    return () => clearInterval(interval);
-  }, [isRunning]);
 
   return (
     <div className="min-h-screen bg-gradient-cosmic">
@@ -244,7 +366,7 @@ const Simulator = () => {
             <select
               className="w-[220px] rounded-lg border border-border bg-background/50 px-3 py-2 text-sm"
               value={board}
-              onChange={e => setBoard(e.target.value as keyof typeof boardPresets)}
+              onChange={(e) => setBoard(e.target.value as keyof typeof boardPresets)}
             >
               <option value="arduino-uno">Arduino Uno</option>
               <option value="arduino-nano">Arduino Nano</option>
@@ -282,7 +404,7 @@ const Simulator = () => {
                 defaultLanguage="javascript"
                 theme="vs-dark"
                 value={code}
-                onChange={value => setCode(value || "")}
+                onChange={(value) => setCode(value || "")}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 14,
@@ -292,13 +414,13 @@ const Simulator = () => {
 
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border border-border/50 rounded-lg p-3 bg-background/60">
               <div className="flex items-center gap-2">
-                {compileStatus.state === "ok" && <Shield className="h-4 w-4 text-green-400" />} 
-                {compileStatus.state === "error" && <Bug className="h-4 w-4 text-destructive" />} 
+                {compileStatus.state === "ok" && <Shield className="h-4 w-4 text-green-400" />}
+                {compileStatus.state === "error" && <Bug className="h-4 w-4 text-destructive" />}
                 {compileStatus.state === "idle" && <Radio className="h-4 w-4 text-muted-foreground" />}
                 <span className="text-sm font-medium">{compileStatus.message}</span>
               </div>
               <div className="flex gap-2 text-xs text-muted-foreground">
-                <Button variant="outline" size="sm" onClick={validateCode}>
+                <Button variant="outline" size="sm" onClick={handleValidateOnly}>
                   Run validation only
                 </Button>
               </div>
