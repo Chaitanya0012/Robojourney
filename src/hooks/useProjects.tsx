@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useXP, XP_REWARDS } from '@/hooks/useXP';
+import { useXP, useXPConfig, DEFAULT_XP_REWARDS } from '@/hooks/useXP';
 
 export interface Project {
   id: string;
@@ -24,6 +24,8 @@ export const useProjects = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { addXP } = useXP();
+  const { data: xpConfig } = useXPConfig();
+  const xpRewards = xpConfig?.xp_rewards ?? DEFAULT_XP_REWARDS;
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects', user?.id],
@@ -59,7 +61,7 @@ export const useProjects = () => {
       if (oldProject && oldProject.progress < 100 && updates.progress === 100) {
         addXP({
           activityType: 'finish_project',
-          xpAmount: XP_REWARDS.finish_project,
+          xpAmount: xpRewards.finish_project,
           description: `Completed project: ${oldProject.title}`,
         });
       }

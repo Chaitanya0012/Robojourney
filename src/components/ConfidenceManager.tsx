@@ -2,12 +2,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useConfidence } from "@/hooks/useConfidence";
-import { useXP, XP_REWARDS } from "@/hooks/useXP";
+import { useXP, useXPConfig, DEFAULT_XP_REWARDS } from "@/hooks/useXP";
 import { useState } from "react";
 
 export const ConfidenceManager = () => {
   const { confidence, updateConfidence } = useConfidence();
   const { addXP } = useXP();
+  const { data: xpConfig } = useXPConfig();
+  const xpRewards = xpConfig?.xp_rewards ?? DEFAULT_XP_REWARDS;
   const [localLevels, setLocalLevels] = useState<Record<string, number>>({});
 
   const handleSliderChange = (id: string, value: number[]) => {
@@ -20,7 +22,7 @@ export const ConfidenceManager = () => {
       updateConfidence({ id, level: newLevel });
       addXP({
         activityType: 'update_confidence',
-        xpAmount: XP_REWARDS.update_confidence,
+        xpAmount: xpRewards.update_confidence,
         description: `Updated ${name} confidence to ${newLevel}%`,
       });
       setLocalLevels(prev => {
@@ -61,7 +63,7 @@ export const ConfidenceManager = () => {
                     onClick={() => handleUpdate(item.id, item.name)}
                     className="w-full"
                   >
-                    Save {item.name} ({XP_REWARDS.update_confidence} XP)
+                    Save {item.name} ({xpRewards.update_confidence} XP)
                   </Button>
                 )}
               </div>

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import ResourceCard from "@/components/ResourceCard";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search, Filter, Plus, Trash2 } from "lucide-react";
 import {
@@ -25,14 +27,16 @@ import { useResources } from "@/hooks/useResources";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
-import { useXP, XP_REWARDS } from "@/hooks/useXP";
+import { useXP, useXPConfig, DEFAULT_XP_REWARDS } from "@/hooks/useXP";
 
 const Resources = () => {
   const { user } = useAuth();
-  const { resources, isLoading, createResource, deleteResource } = useResources();
-  const { isModerator } = useUserRole();
+  const { resources, isLoading, createResource, deleteResource, approveResource } = useResources();
+  const { isModerator, isAdmin } = useUserRole();
   const { toast } = useToast();
   const { addXP } = useXP();
+  const { data: xpConfig } = useXPConfig();
+  const xpRewards = xpConfig?.xp_rewards ?? DEFAULT_XP_REWARDS;
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [confidenceFilter, setConfidenceFilter] = useState("all");
@@ -46,15 +50,23 @@ const Resources = () => {
     image_url: null,
     difficulty_level: "beginner",
     resource_type: "article",
+    is_approved: false,
   });
 
-  const filteredResources = resources.filter((resource) => {
+  const visibleResources = resources.filter((resource) =>
+    resource.is_approved || isModerator || isAdmin || resource.user_id === user?.id
+  );
+
+  const filteredResources = visibleResources.filter((resource) => {
     const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (resource.description || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || resource.category === categoryFilter;
     const matchesConfidence = confidenceFilter === "all" || resource.category === confidenceFilter;
-    return matchesSearch && matchesCategory && matchesConfidence;
+    const isVisible = resource.is_approved || (user && resource.user_id === user.id) || isModerator;
+    return matchesSearch && matchesCategory && matchesConfidence && isVisible;
   });
+
+  const pendingResources = resources.filter((resource) => !resource.is_approved);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,15 +75,6 @@ const Resources = () => {
       toast({
         title: "Error",
         description: "You must be logged in to add resources",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!isModerator) {
-      toast({
-        title: "Error", 
-        description: "Only moderators can add resources",
         variant: "destructive",
       });
       return;
@@ -86,24 +89,27 @@ const Resources = () => {
       return;
     }
 
-    createResource(newResource);
+    createResource({ ...newResource, is_approved: isModerator || isAdmin });
     addXP({
       activityType: 'create_resource',
-      xpAmount: XP_REWARDS.create_resource,
+      xpAmount: xpRewards.create_resource,
       description: `Created resource: ${newResource.title}`,
     });
     setNewResource({
-      title: "", 
-      description: "", 
-      category: "Programming", 
-      url: "", 
-      file_url: null, 
+      title: "",
+      description: "",
+      category: "Programming",
+      url: "",
+      file_url: null,
       image_url: null,
       difficulty_level: "beginner",
       resource_type: "article",
+      is_approved: false,
     });
     setOpen(false);
   };
+
+  const pendingResources = resources.filter((resource) => !resource.is_approved);
 
   return (
     <div className="min-h-screen bg-gradient-cosmic">
@@ -114,19 +120,22 @@ const Resources = () => {
             <div>
               <h1 className="text-4xl font-bold mb-2">Resource Hub</h1>
               <p className="text-muted-foreground">Explore curated tutorials, guides, and tools to enhance your learning</p>
+              <p className="text-xs text-muted-foreground mt-2">Video links work best when you copy them into your browser. We show the title and description here so students can preview quickly.</p>
             </div>
-            {user && isModerator && (
+            {user && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Resource
+                    Upload a resource
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add a New Resource</DialogTitle>
-                    <DialogDescription>Share a learning resource with the community</DialogDescription>
+                    <DialogDescription>
+                      Share a learning resource with the community. Student submissions stay hidden until an admin approves them.
+                    </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -204,7 +213,7 @@ const Resources = () => {
                         maxLength={500}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Link to the external resource
+                        Link to the external resource (YouTube videos will show as copy-and-open links)
                       </p>
                     </div>
                     <Button type="submit" className="w-full">Add Resource</Button>
@@ -213,6 +222,33 @@ const Resources = () => {
               </Dialog>
             )}
           </div>
+
+          {isAdmin && pendingResources.length > 0 && (
+            <Card className="mb-8 border-amber-500/50 bg-amber-50/5">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold">Pending approvals ({pendingResources.length})</h3>
+                  <p className="text-sm text-muted-foreground">Review student-submitted links before they go live.</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {pendingResources.map((resource) => (
+                    <div key={resource.id} className="flex items-start justify-between gap-4 rounded-md border border-border/70 bg-card/80 p-3">
+                      <div className="space-y-1">
+                        <p className="font-semibold">{resource.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{resource.description}</p>
+                        {resource.url && (
+                          <p className="text-xs text-primary break-all">{resource.url}</p>
+                        )}
+                      </div>
+                      <Button size="sm" onClick={() => approveResource(resource.id)}>
+                        Approve
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Search and Filters */}
           <div className="mb-8 space-y-4 animate-fade-in">
@@ -279,8 +315,10 @@ const Resources = () => {
                       rating={resource.avg_rating}
                       ratingCount={resource.rating_count}
                       url={resource.url || undefined}
+                      isApproved={resource.is_approved}
+                      submittedByYou={user?.id === resource.user_id}
                     />
-                    {isModerator && (
+                    {(isModerator || isAdmin) && (
                       <Button
                         variant="destructive"
                         size="icon"
