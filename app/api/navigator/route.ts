@@ -1,192 +1,135 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOpenAIClient, type NavigatorModel } from "../../../lib/openaiClient";
-import { supabaseClient } from "../../../lib/supabaseClient";
-import { articles } from "../../../lib/articles";
+import { articles, curriculumNodes } from "../../../lib/articles";
 import { quizzes } from "../../../lib/quizzes";
+import { glossary } from "../../../lib/glossary";
+import { getOpenAIClient, type NavigatorModel } from "../../../lib/openaiClient";
+import { recallMemory } from "../../../lib/memory";
+import { supabaseClient } from "../../../lib/supabaseClient";
 
-const SYSTEM_PROMPT = `<<<SYSTEM_PROMPT_START>>>
-You are "AI Navigator", a robotics learning guide that controls the website layout and navigation.
+const NAVIGATOR_TONE =
+  "You are an encouraging, curious guide. Celebrate effort, invite tiny experiments, and avoid shame.";
 
-Your goals:
-- Understand the user’s goal and level.
-- Build and maintain a personalized learning path (articles, quizzes, projects).
-- Decide what the user should see NEXT.
-- Reduce friction: minimize manual scrolling and searching for content.
-- Make the site feel like it is tailored entirely to this one person.
-
-You must ALWAYS respond with a single JSON object with the structure:
-
-{
-  "ui_action": "NAVIGATE | UPDATE_LAYOUT | UPDATE_PATH | ASK_USER | IDLE",
-  "ui_payload": { ... },
-  "message": "string to show in the chat bubble",
-  "personalization": {
-    "recommended_articles": [],
-    "recommended_quizzes": [],
-    "next_step": { "type": "", "id": "" }
-  },
-  "path_update": {
-    "path": []
-  }
-}
-
-Rules:
-- NAVIGATE: choose which page/slug the frontend should route to next.
-- UPDATE_LAYOUT: adjust which sections should be visible/emphasized.
-- UPDATE_PATH: create or modify an ordered list of content (learning path).
-- ASK_USER: ask clarifying questions if goal/level is unclear.
-- IDLE: do nothing structural; just answer.
-
-You have access to:
-- A list of available articles (with difficulty, tags, prerequisites).
-- A list of available quizzes (with difficulty, tags, linked article).
-- The user’s preferences and recent results.
-
-Behaviors:
-- For beginners: start with “intro to robotics”, “what is a robot”, “motors basics”, simple quizzes.
-- For intermediate: focus on projects (line follower, obstacle avoider) with supporting theory.
-- For advanced: more projects, algorithms (PID, mapping, state machines), less hand-holding.
-
-Personalization:
-- "recommended_articles": 3–6 highly relevant next articles.
-- "recommended_quizzes": up to 3 relevant quizzes.
-- "next_step": single main recommended action.
-
-You are responsible for making the website feel like it reconfigures itself based on your decisions.
-
-Never output plain text. Only JSON.
-<<<SYSTEM_PROMPT_END>>>`;
-
-type NavigatorRequest = {
-  userMessage?: string;
-  mode?: string;
-  projectId?: string;
-  userId?: string;
-};
-
-const FALLBACK_OUTPUT: NavigatorModel = {
-  ui_action: "UPDATE_LAYOUT",
-  ui_payload: { showRecommendations: true },
-  message: "I set up a starter path: begin with Intro to Robotics, then Motors Basics, followed by the Motors quiz.",
+const FALLBACK: NavigatorModel = {
+  ui_action: "UPDATE_PATH",
+  ui_payload: {},
+  message:
+    "Let's keep the momentum! Start with 'What is Electricity', then try the Digital vs Analog quiz to unlock the next bubble.",
   personalization: {
     recommended_articles: [
-      { id: "intro_robotics", reason: "Foundational overview" },
-      { id: "motors_basics", reason: "Learn how robots move" },
-      { id: "sensors_basics", reason: "Prep for projects" },
+      { id: "what_is_electricity", reason: "kickoff" },
+      { id: "digital_vs_analog", reason: "next in sequence" },
+      { id: "what_is_a_sensor", reason: "sensors power line followers" },
     ],
-    recommended_quizzes: [{ id: "intro_robotics_quiz", reason: "Check understanding" }],
-    next_step: { type: "article", id: "intro_robotics" },
+    recommended_quizzes: [{ id: "quiz_what_is_electricity", reason: "Check your spark" }],
+    next_step: { type: "article", id: "what_is_electricity" },
   },
-  path_update: {
-    path: ["intro_robotics", "motors_basics", "motors_basics_quiz", "line_follower_concept"],
-  },
+  path_update: { path: curriculumNodes },
 };
 
-async function fetchUserPreferences(userId: string) {
-  try {
-    const { data } = await supabaseClient
-      .from("user_preferences")
-      .select("experience_level, goal, preferred_pace")
-      .eq("user_id", userId)
-      .single();
-    return data;
-  } catch (error) {
-    console.error("Failed to fetch preferences", error);
-    return null;
-  }
+type Body = {
+  userId?: string;
+  projectId?: string;
+  userMessage?: string;
+  simulatorState?: Record<string, unknown>;
+  recentMistakeTags?: string[];
+};
+
+async function fetchProgress(userId: string) {
+  const { data } = await supabaseClient
+    .from("user_progress")
+    .select("node_id, xp, level, completed, next_review_date")
+    .eq("user_id", userId);
+  return data || [];
 }
 
-function buildContextBlob(preferences: unknown, mode?: string) {
+function buildContextBlob(userMessage: string, simulatorState: Record<string, unknown> | undefined, progress: any[], memories: string[]) {
+  const unlocked = progress.filter((p) => p.completed).map((p) => p.node_id);
   return {
-    preferences,
-    mode: mode || "live",
-    catalog: {
-      articles: articles.map((a) => ({
-        id: a.id,
-        title: a.title,
-        difficulty: a.difficulty,
-        tags: a.tags,
-        prerequisites: a.prerequisites,
-      })),
-      quizzes: quizzes.map((q) => ({
-        id: q.id,
-        article_id: q.article_id,
-        title: q.title,
-        difficulty: q.difficulty,
-      })),
+    tone: NAVIGATOR_TONE,
+    userMessage,
+    simulatorState,
+    glossary,
+    catalog: { articles, quizzes },
+    progress,
+    unlocked,
+    memories,
+  };
+}
+
+function buildResponse(context: ReturnType<typeof buildContextBlob>): NavigatorModel {
+  const nextNode = curriculumNodes.find((node) => !context.unlocked.includes(node)) || curriculumNodes[0];
+  const nextQuiz = quizzes.find((q) => q.node_id === nextNode);
+  const recommended_articles = articles
+    .filter((a) => [nextNode, context.unlocked[context.unlocked.length - 1]].includes(a.id))
+    .map((a) => ({ id: a.id, reason: "Fits your path" }));
+  const recommended_quizzes = nextQuiz ? [{ id: nextQuiz.id, reason: "Unlocks the following bubble" }] : [];
+
+  return {
+    ui_action: "UPDATE_PATH",
+    ui_payload: { openSimulator: nextNode === "build_a_line_follower" },
+    message:
+      context.userMessage?.length
+        ? "I heard you! Let's tackle the next bubble and keep practicing."
+        : "Ready to keep exploring? Let's follow the map together.",
+    personalization: {
+      recommended_articles,
+      recommended_quizzes,
+      next_step: { type: "article", id: nextNode },
     },
-    recent_results: [],
+    path_update: { path: curriculumNodes },
   };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as NavigatorRequest;
+    const body = (await req.json()) as Body;
     const userId = body.userId || "demo-user";
-    const preferences = await fetchUserPreferences(userId);
-    const contextBlob = buildContextBlob(preferences, body.mode);
+    const projectId = body.projectId || "demo-project";
+
+    const progress = await fetchProgress(userId);
+    if (body.recentMistakeTags?.length) {
+      await supabaseClient.from("mistake_log").insert({ user_id: userId, tags: body.recentMistakeTags });
+    }
+
+    const memories = await recallMemory(projectId, body.userMessage || "robotics learning");
+    const context = buildContextBlob(body.userMessage || "", body.simulatorState, progress, memories);
 
     const client = getOpenAIClient();
-    const shouldCallOpenAI = Boolean(process.env.OPENAI_API_KEY);
+    const shouldCall = Boolean(process.env.OPENAI_API_KEY);
 
-    if (!shouldCallOpenAI) {
-      return NextResponse.json(FALLBACK_OUTPUT);
+    if (!shouldCall) {
+      return NextResponse.json(buildResponse(context));
     }
 
     const completion = await client.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: `${NAVIGATOR_TONE}\nUse JSON only. Avoid shame.` },
         {
           role: "user",
           content: JSON.stringify({
-            context: contextBlob,
-            userMessage: body.userMessage || "Guide the learner.",
+            request: body.userMessage || "Guide me",
+            context,
+            instructions:
+              "Respond with {ui_action, ui_payload, message, personalization, path_update}. ui_action allowed: NAVIGATE, UPDATE_LAYOUT, UPDATE_PATH, ASK_USER, OPEN_SIMULATOR, SHOW_FEEDBACK, IDLE.",
           }),
         },
       ],
       temperature: 0.4,
     });
 
-    const raw = completion.choices[0]?.message?.content || "";
     let parsed: NavigatorModel | null = null;
+    const raw = completion.choices[0]?.message?.content || "";
     try {
       parsed = JSON.parse(raw) as NavigatorModel;
     } catch (error) {
-      console.warn("Navigator JSON parse failed; returning fallback", error);
+      console.warn("Navigator parse failed", error, raw);
     }
 
-    const responsePayload = parsed || FALLBACK_OUTPUT;
-
-    if (responsePayload.path_update?.path?.length) {
-      try {
-        await supabaseClient
-          .from("learning_paths")
-          .upsert({ user_id: userId, path: responsePayload.path_update.path, active: true });
-      } catch (error) {
-        console.error("Failed to persist path", error);
-      }
-    }
-
-    try {
-      await supabaseClient
-        .from("personalized_state")
-        .upsert({
-          user_id: userId,
-          recommended_articles: responsePayload.personalization?.recommended_articles || [],
-          recommended_quizzes: responsePayload.personalization?.recommended_quizzes || [],
-          next_step: responsePayload.personalization?.next_step || null,
-        });
-    } catch (error) {
-      console.error("Failed to persist personalization", error);
-    }
-
-    return NextResponse.json(responsePayload);
+    const payload = parsed || buildResponse(context);
+    return NextResponse.json(payload);
   } catch (error) {
     console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
+    return NextResponse.json(FALLBACK, { status: 200 });
   }
 }

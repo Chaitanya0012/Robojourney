@@ -14,6 +14,8 @@ export type LayoutToggles = {
   showRecommendations: boolean;
   showPath: boolean;
   showChat: boolean;
+  openSimulator?: boolean;
+  showFeedback?: boolean;
 };
 
 type NavigationContextValue = {
@@ -36,6 +38,8 @@ const defaultLayout: LayoutToggles = {
   showRecommendations: true,
   showPath: true,
   showChat: true,
+  openSimulator: false,
+  showFeedback: false,
 };
 
 const NavigationContext = createContext<NavigationContextValue | undefined>(undefined);
@@ -84,6 +88,14 @@ export const NavigationOrchestratorProvider = ({ children }: { children: React.R
           ...prev,
           ...(output.ui_payload as Partial<LayoutToggles>),
         }));
+      }
+
+      if (output.ui_action === "OPEN_SIMULATOR") {
+        setLayout((prev) => ({ ...prev, openSimulator: true }));
+      }
+
+      if (output.ui_action === "SHOW_FEEDBACK") {
+        setLayout((prev) => ({ ...prev, showFeedback: true }));
       }
     },
     [navigate],

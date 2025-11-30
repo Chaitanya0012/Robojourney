@@ -15,7 +15,7 @@ export const getOpenAIClient = () => {
 };
 
 export type NavigatorModel = {
-  ui_action: "NAVIGATE" | "UPDATE_LAYOUT" | "UPDATE_PATH" | "ASK_USER" | "IDLE";
+  ui_action: "NAVIGATE" | "UPDATE_LAYOUT" | "UPDATE_PATH" | "ASK_USER" | "OPEN_SIMULATOR" | "SHOW_FEEDBACK" | "IDLE";
   ui_payload?: Record<string, unknown>;
   message: string;
   personalization: {

@@ -1,11 +1,11 @@
 import { supabaseClient } from "./supabase";
 import { embedText } from "./openai";
 
-export async function saveMemory(
-  userId: string,
-  projectId: string,
-  text: string
-) {
+type MemoryRow = {
+  content: string;
+};
+
+export async function saveMemory(userId: string, projectId: string, text: string) {
   const embedding = await embedText(text);
   const { error } = await supabaseClient.from("ai_memory").insert({
     user_id: userId,
@@ -13,6 +13,7 @@ export async function saveMemory(
     content: text,
     embedding,
   });
+
   if (error) {
     throw new Error(`Failed to save memory: ${error.message}`);
   }
@@ -26,8 +27,10 @@ export async function recallMemory(projectId: string, query: string) {
     match_count: 5,
     query_project_id: projectId,
   });
+
   if (error) {
     throw new Error(`Failed to recall memory: ${error.message}`);
   }
-  return (data as Array<{ content: string }> | null)?.map((row) => row.content) ?? [];
+
+  return (data as MemoryRow[] | null)?.map((row) => row.content) ?? [];
 }
