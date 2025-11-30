@@ -2,6 +2,7 @@ import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import ResourceCard from "@/components/ResourceCard";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search, Filter, Plus, Trash2 } from "lucide-react";
 import {
@@ -29,7 +30,7 @@ import { useXP, XP_REWARDS } from "@/hooks/useXP";
 
 const Resources = () => {
   const { user } = useAuth();
-  const { resources, isLoading, createResource, deleteResource } = useResources();
+  const { resources, isLoading, createResource, deleteResource, approveResource } = useResources();
   const { isModerator } = useUserRole();
   const { toast } = useToast();
   const { addXP } = useXP();
@@ -53,8 +54,11 @@ const Resources = () => {
                          (resource.description || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || resource.category === categoryFilter;
     const matchesConfidence = confidenceFilter === "all" || resource.category === confidenceFilter;
-    return matchesSearch && matchesCategory && matchesConfidence;
+    const isVisible = resource.is_approved || (user && resource.user_id === user.id) || isModerator;
+    return matchesSearch && matchesCategory && matchesConfidence && isVisible;
   });
+
+  const pendingResources = resources.filter((resource) => !resource.is_approved);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,15 +67,6 @@ const Resources = () => {
       toast({
         title: "Error",
         description: "You must be logged in to add resources",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!isModerator) {
-      toast({
-        title: "Error", 
-        description: "Only moderators can add resources",
         variant: "destructive",
       });
       return;
@@ -114,19 +109,22 @@ const Resources = () => {
             <div>
               <h1 className="text-4xl font-bold mb-2">Resource Hub</h1>
               <p className="text-muted-foreground">Explore curated tutorials, guides, and tools to enhance your learning</p>
+              <p className="text-xs text-muted-foreground mt-2">Video links work best when you copy them into your browser. We show the title and description here so students can preview quickly.</p>
             </div>
-            {user && isModerator && (
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button>
+          {user && (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Resource
+                    Upload a resource
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add a New Resource</DialogTitle>
-                    <DialogDescription>Share a learning resource with the community</DialogDescription>
+                    <DialogDescription>
+                      Share a learning resource with the community. Submissions from students will be reviewed by an admin before going live.
+                    </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -214,6 +212,28 @@ const Resources = () => {
             )}
           </div>
 
+          {isModerator && pendingResources.length > 0 && (
+            <div className="mb-8 space-y-3 animate-fade-in">
+              <h3 className="text-lg font-semibold">Pending submissions</h3>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pendingResources.map((resource) => (
+                  <Card key={resource.id} className="p-4 border-amber-200/60 bg-amber-50/40">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-amber-700">Awaiting approval</p>
+                        <h4 className="font-semibold">{resource.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{resource.description}</p>
+                      </div>
+                      <Button size="sm" onClick={() => approveResource(resource.id)}>
+                        Approve
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Search and Filters */}
           <div className="mb-8 space-y-4 animate-fade-in">
             <div className="flex gap-4">
@@ -279,6 +299,8 @@ const Resources = () => {
                       rating={resource.avg_rating}
                       ratingCount={resource.rating_count}
                       url={resource.url || undefined}
+                      isApproved={resource.is_approved}
+                      submittedByYou={user?.id === resource.user_id}
                     />
                     {isModerator && (
                       <Button
