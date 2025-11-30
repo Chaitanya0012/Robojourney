@@ -4,7 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Navigation from "@/components/Navigation";
 import CollaborationDialog from "@/components/CollaborationDialog";
-import { Zap, Target, Users, TrendingUp, Sparkles, Rocket, Mail, ArrowRight, Star, ShieldCheck } from "lucide-react";
+import {
+  Zap,
+  Target,
+  Users,
+  TrendingUp,
+  Sparkles,
+  Rocket,
+  Mail,
+  ArrowRight,
+  Star,
+  ShieldCheck,
+  Compass,
+  AlertOctagon,
+  Activity,
+} from "lucide-react";
 import heroImage from "@/assets/hero-robotics.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCollaboration } from "@/hooks/useCollaboration";
@@ -33,6 +47,32 @@ const Index = () => {
       title: "Skim a human-grade article",
       description: "Pick a topic in the Learn section and highlight key takeaways.",
       action: () => navigate("/learn"),
+    },
+  ]);
+
+  const [navActions, setNavActions] = useState([
+    {
+      title: "Flash-check hardware",
+      detail: "Verify board selection, comms, and upload settings before touching code.",
+      eta: "2 min",
+    },
+    {
+      title: "Generate test loop",
+      detail: "Run a tiny loop to blink and echo serial output to prove the toolchain.",
+      eta: "4 min",
+    },
+  ]);
+  const [navSignal, setNavSignal] = useState("Navigation AI is waiting for a goal.");
+  const [navRisks, setNavRisks] = useState([
+    {
+      label: "Simulator parity",
+      status: "Pending",
+      mitigation: "Run the validation sweep before pushing code to hardware.",
+    },
+    {
+      label: "Sensor trust",
+      status: "Pending",
+      mitigation: "Cross-check ultrasonic readings with simulated wall distance.",
     },
   ]);
 
@@ -83,6 +123,42 @@ const Index = () => {
         title: "Prototype fast",
         description: "Spin up the simulator and preview your firmware without flashing hardware.",
         action: () => navigate("/simulator"),
+      },
+    ]);
+
+    setNavSignal(`AI navigator locked onto: ${trimmed}`);
+    setNavActions([
+      {
+        title: "Plan → Simulate",
+        detail: "Draft the control loop and validate syntax inside the worker-powered simulator.",
+        eta: "6 min",
+      },
+      {
+        title: "Probe sensors",
+        detail: "Record ultrasonic readings at 0.2 m increments; flag anything off by >5%.",
+        eta: "5 min",
+      },
+      {
+        title: "Ship decision",
+        detail: "Capture telemetry, export logs, and decide whether to deploy to hardware.",
+        eta: "4 min",
+      },
+    ]);
+    setNavRisks([
+      {
+        label: "Syntax health",
+        status: "Guarded",
+        mitigation: "Run validation-only before hitting Run to surface compile issues.",
+      },
+      {
+        label: "Navigation confidence",
+        status: "Focused",
+        mitigation: "Use the autopilot queue to rehearse the path inside the simulator first.",
+      },
+      {
+        label: "Goal fit",
+        status: "Clear",
+        mitigation: `Steps tuned for: ${trimmed}`,
       },
     ]);
   };
@@ -246,6 +322,59 @@ const Index = () => {
                 </div>
               </Card>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-reveal">
+            <Card className="p-4 glass-card flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-primary">
+                <Compass className="h-4 w-4" />
+                <span className="text-sm font-semibold">AI Navigator Signal</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{navSignal}</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs">Synthetic planning</span>
+                <span className="px-3 py-1 rounded-full bg-accent/10 text-accent text-xs">Ready to route</span>
+              </div>
+            </Card>
+
+            <Card className="p-4 glass-card">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-secondary">
+                  <Activity className="h-4 w-4" />
+                  <span className="text-sm font-semibold">Next 3 plays</span>
+                </div>
+                <span className="text-xs text-muted-foreground">Auto-refreshed</span>
+              </div>
+              <div className="space-y-3">
+                {navActions.map((action, idx) => (
+                  <div key={idx} className="p-3 rounded-lg border border-border/50 bg-background/60">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">{action.title}</p>
+                      <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">{action.eta}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{action.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-4 glass-card">
+              <div className="flex items-center gap-2 text-destructive mb-2">
+                <AlertOctagon className="h-4 w-4" />
+                <span className="text-sm font-semibold">Risk radar</span>
+              </div>
+              <div className="space-y-2">
+                {navRisks.map((risk, idx) => (
+                  <div key={idx} className="p-2 rounded-lg bg-destructive/5 border border-destructive/20">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-destructive">{risk.label}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-background/80 text-foreground">{risk.status}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{risk.mitigation}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
           </div>
 
           {/* Section Header */}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export interface Telemetry {
@@ -70,6 +70,36 @@ export const useSimulator = () => {
       timestamp: Date.now(),
     }));
   }, []);
+
+  // Lightweight kinematic loop to keep the canvas feeling responsive
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const interval = setInterval(() => {
+      setTelemetry(prev => {
+        const speed = (prev.leftMotor + prev.rightMotor) / 2;
+        const turn = (prev.rightMotor - prev.leftMotor) / 2;
+
+        const heading = prev.rotation + turn * 0.08;
+        const dx = Math.cos(heading) * speed * 0.05;
+        const dz = Math.sin(heading) * speed * 0.05;
+
+        const distanceToVirtualWall = Math.max(0.15, 1.5 - Math.abs(prev.position[0] + dx));
+
+        return {
+          ...prev,
+          position: [prev.position[0] + dx, prev.position[1], prev.position[2] + dz],
+          rotation: heading,
+          sensors: {
+            ultrasonic: Number(distanceToVirtualWall.toFixed(3)),
+          },
+          timestamp: Date.now(),
+        };
+      });
+    }, 120);
+
+    return () => clearInterval(interval);
+  }, [isRunning]);
 
   // API handlers that the worker can call
   const setMotor = useCallback((left: number, right: number) => {
