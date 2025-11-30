@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio } from "lucide-react";
+import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Bot } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Editor from "@monaco-editor/react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const defaultCode = `// Arduino-style robot code
 void setup() {
@@ -49,13 +52,77 @@ const boardPresets = {
 };
 
 const Simulator = () => {
+  const { user } = useAuth();
   const [code, setCode] = useState(defaultCode);
   const [isRunning, setIsRunning] = useState(false);
   const [serialOutput, setSerialOutput] = useState<string[]>([]);
   const [ledState, setLedState] = useState(false);
   const [board, setBoard] = useState<keyof typeof boardPresets>("arduino-uno");
+  const [usedPins, setUsedPins] = useState<number[]>([]);
+  const [usedAnalogPins, setUsedAnalogPins] = useState<string[]>([]);
+  const [simError, setSimError] = useState<string | null>(null);
+  const [tutorHelp, setTutorHelp] = useState<string>("");
+  const [isTutorLoading, setIsTutorLoading] = useState(false);
 
   const currentBoard = useMemo(() => boardPresets[board], [board]);
+
+  const extractPins = useCallback((sketch: string) => {
+    const digitalMatches = Array.from(
+      sketch.matchAll(/(?:digitalWrite|analogWrite|pinMode|digitalRead)\s*\(\s*(\d+)/g)
+    ).map((match) => Number(match[1]));
+    const analogMatches = Array.from(sketch.matchAll(/A(\d+)/gi)).map((match) => `A${match[1]}`);
+
+    setUsedPins([...new Set(digitalMatches)]);
+    setUsedAnalogPins([...new Set(analogMatches)]);
+  }, []);
+
+  useEffect(() => {
+    extractPins(code);
+  }, [code, extractPins]);
+
+  const validateCode = useCallback(() => {
+    const errors: string[] = [];
+    if (!code.includes("void setup")) {
+      errors.push("Missing setup() function – initialize your pins there.");
+    }
+    if (!code.includes("void loop")) {
+      errors.push("Missing loop() function – the robot needs a main loop to run.");
+    }
+
+    const maxDigitalPin = currentBoard.lanes + 1;
+    const invalidPins = usedPins.filter((pin) => pin < 2 || pin > maxDigitalPin);
+    if (invalidPins.length > 0) {
+      errors.push(
+        `Pins out of range: ${invalidPins.join(", ")}. Use D2-D${maxDigitalPin} for ${currentBoard.name}.`
+      );
+    }
+
+    return errors;
+  }, [code, currentBoard.lanes, currentBoard.name, usedPins]);
+
+  const requestTutorHelp = useCallback(
+    async (issues: string[]) => {
+      setIsTutorLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("ai-tutor", {
+          body: {
+            prompt: `Detected simulator issues:\n${issues.join("\n")}\n\nUser code:\n${code}`,
+            userId: user?.id,
+            action: "simulation-debug",
+          },
+        });
+
+        if (error) throw error;
+        setTutorHelp(data.response || "The AI tutor will prompt you to debug step by step.");
+      } catch (err: any) {
+        console.error("Tutor debug error", err);
+        toast.error(err.message || "AI tutor could not analyze the sketch");
+      } finally {
+        setIsTutorLoading(false);
+      }
+    },
+    [code, user?.id]
+  );
 
   useEffect(() => {
     if (!isRunning) return;
@@ -79,6 +146,17 @@ const Simulator = () => {
   }, [isRunning]);
 
   const handleRun = () => {
+    const issues = validateCode();
+    if (issues.length > 0) {
+      setIsRunning(false);
+      setSimError(issues.join("\n"));
+      setSerialOutput((prevOutput) => [...prevOutput, "⚠️ Simulation paused: fix the issues and try again."]);
+      requestTutorHelp(issues);
+      return;
+    }
+
+    setSimError(null);
+    setTutorHelp("");
     setIsRunning((prev) => {
       const next = !prev;
       if (next) {
@@ -92,6 +170,8 @@ const Simulator = () => {
     setIsRunning(false);
     setLedState(false);
     setSerialOutput([]);
+    setSimError(null);
+    setTutorHelp("");
   };
 
   return (
@@ -178,11 +258,18 @@ const Simulator = () => {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-black/30 rounded-lg p-4 border border-white/10 shadow-inner">
+                      <div className="bg-black/30 rounded-lg p-4 border border-white/10 shadow-inner">
                       <div className="text-white/80 text-xs mb-2">Digital Pins</div>
                       <div className="grid grid-cols-5 gap-2 text-[10px] text-white/90">
                         {[...Array(currentBoard.lanes).keys()].map((lane) => (
-                          <div key={lane} className="px-2 py-1 rounded bg-white/10 border border-white/5 text-center">
+                          <div
+                            key={lane}
+                            className={`px-2 py-1 rounded border text-center transition-colors ${
+                              usedPins.includes(lane + 2)
+                                ? "bg-emerald-400/30 border-emerald-200 text-white font-semibold"
+                                : "bg-white/10 border-white/5"
+                            }`}
+                          >
                             D{lane + 2}
                           </div>
                         ))}
@@ -192,7 +279,14 @@ const Simulator = () => {
                       <div className="text-white/80 text-xs mb-2">Power & Analog</div>
                       <div className="flex flex-wrap gap-2 text-[10px] text-white/90">
                         {["5V", "3V3", "GND", "VIN", "A0", "A1", "A2", "A3", "A4", "A5"].map((label) => (
-                          <div key={label} className="px-2 py-1 rounded bg-white/10 border border-white/5">
+                          <div
+                            key={label}
+                            className={`px-2 py-1 rounded border transition-colors ${
+                              usedAnalogPins.includes(label)
+                                ? "bg-sky-400/30 border-sky-200 text-white font-semibold"
+                                : "bg-white/10 border-white/5"
+                            }`}
+                          >
                             {label}
                           </div>
                         ))}
@@ -221,6 +315,42 @@ const Simulator = () => {
                   ))
                 )}
               </div>
+            </Card>
+
+            <Card className="p-6 glass-card space-y-3">
+              <div className="flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">AI Tutor Debug Coach</h2>
+              </div>
+              {simError && (
+                <div className="text-sm bg-red-500/10 border border-red-500/40 rounded-md p-3 text-red-100 whitespace-pre-wrap">
+                  {simError}
+                </div>
+              )}
+              {isTutorLoading ? (
+                <p className="text-sm text-muted-foreground">AI tutor is reviewing your code...</p>
+              ) : tutorHelp ? (
+                <div className="text-sm text-foreground whitespace-pre-wrap">{tutorHelp}</div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Run the simulator or trigger an error to get coaching. The tutor will ask guiding questions instead of giving the answer.
+                </p>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const issues = validateCode();
+                  if (issues.length === 0) {
+                    toast.info("No issues detected yet. Try running the code to collect feedback.");
+                    return;
+                  }
+                  setSimError(issues.join("\n"));
+                  requestTutorHelp(issues);
+                }}
+              >
+                Ask AI Tutor for hints
+              </Button>
             </Card>
           </div>
         </div>

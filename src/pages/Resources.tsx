@@ -3,7 +3,7 @@ import Navigation from "@/components/Navigation";
 import ResourceCard from "@/components/ResourceCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, Plus, Trash2 } from "lucide-react";
+import { Search, Filter, Plus, Trash2, Shield } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -29,8 +29,8 @@ import { useXP, XP_REWARDS } from "@/hooks/useXP";
 
 const Resources = () => {
   const { user } = useAuth();
-  const { resources, isLoading, createResource, deleteResource } = useResources();
-  const { isModerator } = useUserRole();
+  const { resources, isLoading, createResource, deleteResource, approveResource } = useResources();
+  const { isModerator, isAdmin } = useUserRole();
   const { toast } = useToast();
   const { addXP } = useXP();
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,6 +56,9 @@ const Resources = () => {
     return matchesSearch && matchesCategory && matchesConfidence;
   });
 
+  const approvedResources = filteredResources.filter((resource) => resource.is_approved);
+  const pendingResources = filteredResources.filter((resource) => !resource.is_approved);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -63,15 +66,6 @@ const Resources = () => {
       toast({
         title: "Error",
         description: "You must be logged in to add resources",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!isModerator) {
-      toast({
-        title: "Error", 
-        description: "Only moderators can add resources",
         variant: "destructive",
       });
       return;
@@ -86,7 +80,7 @@ const Resources = () => {
       return;
     }
 
-    createResource(newResource);
+    createResource({ ...newResource, isApproved: isAdmin });
     addXP({
       activityType: 'create_resource',
       xpAmount: XP_REWARDS.create_resource,
@@ -115,7 +109,7 @@ const Resources = () => {
               <h1 className="text-4xl font-bold mb-2">Resource Hub</h1>
               <p className="text-muted-foreground">Explore curated tutorials, guides, and tools to enhance your learning</p>
             </div>
-            {user && isModerator && (
+            {user && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button>
@@ -126,7 +120,9 @@ const Resources = () => {
                 <DialogContent className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add a New Resource</DialogTitle>
-                    <DialogDescription>Share a learning resource with the community</DialogDescription>
+                    <DialogDescription>
+                      Students can share inspiring videos or articles. Admin approval is required before links go live.
+                    </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -207,7 +203,9 @@ const Resources = () => {
                         Link to the external resource
                       </p>
                     </div>
-                    <Button type="submit" className="w-full">Add Resource</Button>
+                    <Button type="submit" className="w-full">
+                      {isAdmin ? "Publish Resource" : "Submit for Approval"}
+                    </Button>
                   </form>
                 </DialogContent>
               </Dialog>
@@ -265,41 +263,66 @@ const Resources = () => {
             <div className="text-center py-12">
               <p className="text-muted-foreground">Loading resources...</p>
             </div>
+          ) : approvedResources.length === 0 ? (
+            <Card className="p-6 text-center bg-card/50 backdrop-blur-sm border-border/50">
+              <h3 className="text-xl font-semibold mb-2">No approved resources yet</h3>
+              <p className="text-muted-foreground">Submit a link to get started. Admin will approve before it shows up.</p>
+            </Card>
           ) : (
-            <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {approvedResources.map((resource, index) => (
+                <div key={resource.id} className="relative group" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <ResourceCard
+                    title={resource.title}
+                    description={resource.description || ""}
+                    category={resource.category}
+                    type={resource.resource_type || "Resource"}
+                    difficulty={(resource.difficulty_level as "beginner" | "intermediate" | "advanced") || "beginner"}
+                    rating={resource.avg_rating}
+                    ratingCount={resource.rating_count}
+                    url={resource.url || undefined}
+                  />
+                  {isModerator && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => deleteResource(resource.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isAdmin && pendingResources.length > 0 && (
+            <div className="mt-10 space-y-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Shield className="h-5 w-5 text-amber-500" /> Pending Approval
+              </h2>
+              <p className="text-sm text-muted-foreground">Review student-submitted links before they go live.</p>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredResources.map((resource, index) => (
-                  <div key={resource.id} className="relative group" style={{ animationDelay: `${index * 0.1}s` }}>
-                    <ResourceCard
-                      title={resource.title}
-                      description={resource.description || ""}
-                      category={resource.category}
-                      type={resource.resource_type || "Resource"}
-                      difficulty={(resource.difficulty_level as "beginner" | "intermediate" | "advanced") || "beginner"}
-                      rating={resource.avg_rating}
-                      ratingCount={resource.rating_count}
-                      url={resource.url || undefined}
-                    />
-                    {isModerator && (
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => deleteResource(resource.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
+                {pendingResources.map((resource) => (
+                  <Card key={resource.id} className="p-4 space-y-3 bg-amber-500/5 border border-amber-200/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase text-amber-500 font-semibold">Pending</p>
+                        <h3 className="text-lg font-semibold">{resource.title}</h3>
+                      </div>
+                      <Button size="sm" variant="secondary" onClick={() => approveResource(resource.id)}>
+                        Approve
                       </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{resource.description}</p>
+                    {resource.url && (
+                      <p className="text-xs font-mono break-all text-foreground">{resource.url}</p>
                     )}
-                  </div>
+                  </Card>
                 ))}
               </div>
-
-              {filteredResources.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">No resources found matching your filters</p>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
       </div>

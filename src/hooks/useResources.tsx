@@ -24,6 +24,10 @@ export interface ResourceWithStats extends Resource {
   avg_rating: number;
 }
 
+export type NewResourceInput = Omit<Resource, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'is_approved'> & {
+  isApproved?: boolean;
+};
+
 export const useResources = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -43,20 +47,24 @@ export const useResources = () => {
   });
 
   const createResource = useMutation({
-    mutationFn: async (newResource: Omit<Resource, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'is_approved'>) => {
+    mutationFn: async (newResource: NewResourceInput) => {
       if (!user) throw new Error('Not authenticated');
+
+      const isApproved = newResource.isApproved ?? false;
 
       const { error } = await supabase
         .from('resources')
-        .insert({ ...newResource, user_id: user.id, is_approved: true });
+        .insert({ ...newResource, user_id: user.id, is_approved: isApproved });
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['resources'] });
       toast({
         title: "Success",
-        description: "Resource created successfully",
+        description: variables?.isApproved
+          ? "Resource published successfully"
+          : "Resource submitted for admin approval",
       });
     },
     onError: (error) => {
@@ -95,10 +103,38 @@ export const useResources = () => {
     },
   });
 
+  const approveResource = useMutation({
+    mutationFn: async (resourceId: string) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('resources')
+        .update({ is_approved: true })
+        .eq('id', resourceId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      toast({
+        title: "Resource approved",
+        description: "The link is now visible to students",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     resources: resources || [],
     isLoading,
     createResource: createResource.mutate,
     deleteResource: deleteResource.mutate,
+    approveResource: approveResource.mutate,
   };
 };

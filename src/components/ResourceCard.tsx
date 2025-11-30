@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, BookOpen, Star, Video, FileText, GraduationCap } from "lucide-react";
+import { ExternalLink, BookOpen, Star, Video, FileText, GraduationCap, Copy } from "lucide-react";
+import { useState } from "react";
 
 interface ResourceCardProps {
   title: string;
@@ -15,6 +16,16 @@ interface ResourceCardProps {
 }
 
 const ResourceCard = ({ title, description, category, difficulty, type, rating = 0, ratingCount = 0, url }: ResourceCardProps) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!url) return;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(url);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   const difficultyColors = {
     beginner: "bg-success/20 text-success",
     intermediate: "bg-warning/20 text-warning",
@@ -50,7 +61,17 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
       {url && (
         <div className="mb-4 p-3 bg-muted/50 rounded-md border border-border/50 space-y-2">
-          <p className="text-xs text-muted-foreground">Trusted external link</p>
+          <p className="text-xs text-muted-foreground">
+            {type.toLowerCase() === "video"
+              ? "Please copy this link into your browser to view the video."
+              : "Trusted external link"}
+          </p>
+          {type.toLowerCase() === "video" && (
+            <div className="text-xs text-muted-foreground">
+              <p className="font-semibold text-foreground">{title}</p>
+              <p className="line-clamp-2">{description}</p>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <a
               href={url}
@@ -65,6 +86,10 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
                 <ExternalLink className="h-4 w-4 mr-1 group-hover:animate-glow-pulse" />
                 Open
               </a>
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleCopy} className="inline-flex items-center gap-1">
+              <Copy className="h-4 w-4" />
+              {copied ? "Copied" : "Copy Link"}
             </Button>
           </div>
         </div>

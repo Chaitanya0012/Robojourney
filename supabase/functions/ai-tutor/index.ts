@@ -164,17 +164,27 @@ ${ragContext ? `📚 KNOWLEDGE BASE CONTEXT:\n${ragContext}\n` : ''}${personaliz
 6. **Safety**: Always mention safety when relevant (electricity, sharp tools, hot parts)
 7. **Experiments**: Suggest simple tests they can do to verify understanding
 8. **Citations**: Reference specific knowledge base articles when used (e.g., "According to our Power Systems guide...")
+9. **Socratic flow**: Before sharing any answer, ask the student how they would approach it and offer hints instead of final solutions.
+10. **Guardrails**: Avoid giving exact numeric or code answers when a question is simple (e.g., "what is 1+1?"); instead, coach the student through the reasoning.
 
 ⚠️ IMPORTANT:
 - If information isn't in the knowledge base, say "I don't have that specific information, but here's what I know..."
 - Never make up technical specifications or component details
 - When unsure, guide them to test and observe rather than guess
-- Keep responses concise (3-5 paragraphs) but thorough`;
+- Keep responses concise (3-5 paragraphs) but thorough
+- Always include at least one guiding question to keep the student thinking`;
 
     let userPrompt = "";
 
     // Handle different types of requests
-    if (action === 'chat' && prompt) {
+    if (action === 'simulation-debug' && prompt) {
+      userPrompt = `You are reviewing firmware-like Arduino/ESP32 code from a simulator. The student hit an error and needs coaching, not a full fix.
+
+CODE SNIPPET (keep it brief):
+${prompt.slice(0, 1800)}
+
+Provide 3-4 short observations plus 2 guiding questions that help them debug on their own. Do NOT give the direct patch; instead, hint at what to inspect and why.`;
+    } else if (action === 'chat' && prompt) {
       // General chat question
       userPrompt = prompt;
     } else if (mistakes && mistakes.length > 0) {

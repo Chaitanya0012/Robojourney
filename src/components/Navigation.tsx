@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, BookOpen, MessageSquare, User, BarChart3, Zap, LogOut, Shield, FileText, Brain, GraduationCap, Box } from "lucide-react";
+import { Home, BookOpen, MessageSquare, User, BarChart3, Zap, LogOut, Shield, FileText, Brain, GraduationCap, Box, Bot } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -18,7 +18,7 @@ const Navigation = () => {
     { path: "/learn", label: "Learn", icon: GraduationCap },
     { path: "/simulator", label: "Simulator", icon: Box },
     { path: "/quiz", label: "Quiz", icon: Brain },
-    { path: "/tutor", label: "AI Tutor", icon: Brain },
+    { path: "/tutor", label: "AI Tutor", icon: Bot },
     { path: "/feedback", label: "Feedback", icon: MessageSquare },
     { path: "/profile", label: "Profile", icon: User },
     { path: "/analytics", label: "Analytics", icon: BarChart3 },
