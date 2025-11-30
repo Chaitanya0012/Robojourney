@@ -1,18 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  Download,
-  Cpu,
-  Zap,
-  Radio,
-  Shield,
-  Bug,
-  Sparkles,
-  Brain,
-} from "lucide-react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Play, Pause, RotateCcw, Download, Cpu, Zap, Radio, Shield, Bug, Brain } from "lucide-react";
 
 import Navigation from "@/components/Navigation";
 import { SimulatorCanvas } from "@/components/simulator/SimulatorCanvas";
@@ -20,9 +7,11 @@ import { CodeEditor } from "@/components/simulator/CodeEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useSimulator } from "@/hooks/useSimulator";
 import { useAuth } from "@/contexts/AuthContext";
+import { CodeEditor } from "@/components/simulator/CodeEditor";
 
 const defaultCode = `// Arduino-style robot code
 void setup() {
@@ -346,7 +335,9 @@ const Simulator = () => {
               </div>
             </div>
 
-            <CodeEditor value={code} onChange={setCode} />
+            <div className="border border-border/50 rounded-lg overflow-hidden h-[520px]">
+              <CodeEditor value={code} onChange={setCode} language="javascript" />
+            </div>
 
             <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-background/60 p-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-2">
