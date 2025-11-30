@@ -26,7 +26,7 @@ import { useResources } from "@/hooks/useResources";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
-import { useXP, XP_REWARDS } from "@/hooks/useXP";
+import { useXP, useXPConfig, DEFAULT_XP_REWARDS } from "@/hooks/useXP";
 
 const Resources = () => {
   const { user } = useAuth();
@@ -34,6 +34,8 @@ const Resources = () => {
   const { isModerator } = useUserRole();
   const { toast } = useToast();
   const { addXP } = useXP();
+  const { data: xpConfig } = useXPConfig();
+  const xpRewards = xpConfig?.xp_rewards ?? DEFAULT_XP_REWARDS;
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [confidenceFilter, setConfidenceFilter] = useState("all");
@@ -84,7 +86,7 @@ const Resources = () => {
     createResource(newResource);
     addXP({
       activityType: 'create_resource',
-      xpAmount: XP_REWARDS.create_resource,
+      xpAmount: xpRewards.create_resource,
       description: `Created resource: ${newResource.title}`,
     });
     setNewResource({
