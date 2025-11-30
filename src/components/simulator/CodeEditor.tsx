@@ -5,19 +5,20 @@ interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  language?: string;
 }
 
-export const CodeEditor = ({ value, onChange, readOnly = false }: CodeEditorProps) => {
+export const CodeEditor = ({ value, onChange, readOnly = false, language = "javascript" }: CodeEditorProps) => {
   const { theme } = useTheme();
 
   return (
     <div className="h-[450px] border border-border/50 rounded-md overflow-hidden bg-background/95 backdrop-blur shadow-glow-cyan/20">
       <Editor
         height="100%"
-        defaultLanguage="javascript"
+        defaultLanguage={language}
         value={value}
         onChange={(value) => onChange(value || "")}
-        theme="vs-dark"
+        theme={theme === "dark" ? "vs-dark" : "light"}
         options={{
           readOnly,
           minimap: { enabled: false },

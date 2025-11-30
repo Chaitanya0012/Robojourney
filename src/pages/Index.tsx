@@ -36,6 +36,38 @@ const Index = () => {
     },
   ]);
 
+  const createNavigatorPlan = (goal: string) => {
+    const trimmedGoal = goal.trim() || "Ship a stable robot demo";
+    return [
+      {
+        title: "Define done & guardrails",
+        detail: `Success looks like: ${trimmedGoal}. Write 3 checks you can verify in the simulator and one real-world fallback.`,
+        eta: "5 min",
+        status: "READY",
+      },
+      {
+        title: "Prototype in simulator",
+        detail: "Load your board preset, wire virtual sensors, and stream telemetry to catch logic bugs before hardware.",
+        eta: "12 min",
+        status: "RUNNING",
+      },
+      {
+        title: "Navigation sanity",
+        detail: "Record a 90-second run with obstacles. If ultrasonic < 0.3m, trigger a slow-turn recovery routine.",
+        eta: "8 min",
+        status: "PENDING",
+      },
+      {
+        title: "Quiz & lock-in",
+        detail: "Take a 4-question checkpoint on today’s topic to close the loop and earn XP.",
+        eta: "4 min",
+        status: "PENDING",
+      },
+    ];
+  };
+
+  const navigatorPlan = useMemo(() => createNavigatorPlan(planInput), [planInput]);
+
   const features = [
     {
       icon: Target,
@@ -228,6 +260,19 @@ const Index = () => {
                     {consentLabel}
                   </button>
                   <span className="text-muted-foreground">Toggle whether your activity trains the LLM.</span>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {navigatorPlan.map((step, index) => (
+                    <Card key={step.title} className="p-4 border-primary/20 bg-background/70">
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <div className="px-2 py-1 rounded-full bg-primary/10 text-primary font-semibold">{step.status}</div>
+                        <span className="text-muted-foreground">{step.eta}</span>
+                      </div>
+                      <p className="text-sm font-semibold text-foreground">{index + 1}. {step.title}</p>
+                      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{step.detail}</p>
+                    </Card>
+                  ))}
                 </div>
               </div>
               <Card className="p-4 border-dashed border-primary/30 bg-primary/5">
