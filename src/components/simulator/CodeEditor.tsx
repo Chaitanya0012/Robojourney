@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -7,21 +5,19 @@ interface CodeEditorProps {
   placeholder?: string;
 }
 
-export const CodeEditor = ({ value, onChange, readOnly = false, placeholder }: CodeEditorProps) => {
-  const lineNumbers = useMemo(() => value.split("\n").map((_, index) => index + 1).join("\n"), [value]);
-
+export const CodeEditor = ({ value, onChange, readOnly = false, language = "javascript" }: CodeEditorProps) => {
   return (
-    <div className="relative h-[520px] rounded-md border border-border/50 bg-background/95 shadow-glow-cyan/20 overflow-hidden">
-      <div className="absolute inset-y-0 left-0 w-12 select-none bg-muted/40 px-2 py-3 text-xs font-mono text-muted-foreground/80 border-r border-border/50">
-        <pre className="whitespace-pre leading-6">{lineNumbers}</pre>
-      </div>
+    <div className="h-[450px] border border-border/50 rounded-md overflow-hidden bg-background/95 backdrop-blur shadow-glow-cyan/20">
+      <label className="sr-only" htmlFor="code-editor">
+        {language} code editor
+      </label>
       <textarea
+        id="code-editor"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
         readOnly={readOnly}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-full w-full resize-none bg-background text-foreground font-mono text-sm p-4 outline-none border-0 focus:ring-0"
         spellCheck={false}
-        placeholder={placeholder}
-        className="absolute inset-0 w-full h-full resize-none border-0 bg-transparent pl-14 pr-4 py-3 font-mono text-sm leading-6 text-foreground focus:outline-none focus:ring-0"
       />
     </div>
   );
