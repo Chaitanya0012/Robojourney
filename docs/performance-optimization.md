@@ -1,53 +1,57 @@
-# Performance Optimization Playbook
+# Performance Optimization Plan for React + TypeScript + Supabase Robotics App
 
-This guide captures targeted steps to reduce load times and improve responsiveness for the React + TypeScript + Supabase robotics app. It emphasizes quick wins first, then deeper platform changes.
+This plan summarizes common bottlenecks observed in the current educational robotics web app (React + TypeScript frontend, Supabase backend) and outlines actionable tactics to reduce first-load latency and improve user experience. The guidance is organized by area so work can be prioritized incrementally.
 
-## 1) Quick wins for the next deployment
-- **Supabase query hygiene**
-  - Limit column selection on all reads; avoid `select('*')` in production paths.
-  - Collapse N+1 patterns into a single relational `select` or an RPC when joining multiple tables.
-  - Add indexes on frequently filtered columns (e.g., `user_id`, `course_id`, `updated_at`) using Supabase Performance insights or `EXPLAIN ANALYZE`.
-- **Reduce the initial JS payload**
-  - Lazy-load the simulator, AI Tutor, and quiz builder routes/components via `React.lazy` + `Suspense`.
-  - Dynamically import heavy editors (e.g., Monaco) and AI SDKs only when their UI opens.
-  - Import icons/utilities individually instead of entire packages.
-- **Cache and parallelize**
-  - Introduce React Query/SWR for shared data (user profile, course list, quiz metadata) with a multi-minute `staleTime` to dedupe requests.
-  - Fire independent Supabase queries in `Promise.all` rather than serial awaits during screen loads.
-- **Debounce user-driven calls**
-  - Apply a 300–600 ms debounce to search bars, auto-save, and AI prompts; throttle sliders/drag events to ~5–10 updates per second.
-- **Asset delivery**
-  - Ensure gzip/Brotli is enabled; use `loading="lazy"` for images and pre-sized placeholders for hero media.
+## 1) Supabase Latency (Auth & Data)
+- **Optimize queries:** Profile slow calls and add indexes to frequently filtered columns or join keys; use Supabase Performance tools or `EXPLAIN ANALYZE` to spot sequential scans.
+- **Avoid N+1:** Replace iterative client fetches with single relational selects or RPC functions (e.g., `select("*, users(name)")`).
+- **Limit payloads:** Request only needed columns instead of `*` to shrink responses.
+- **Defer heavy data:** Render the shell immediately and fetch large tables (quiz results, telemetry, etc.) in effects or on demand.
+- **Parallelize independent requests:** Use `Promise.all` for unrelated queries; balance concurrency to avoid overload.
+- **Auth efficiency:** Prefer cookie-based auth for SSR when available; avoid extra round-trips for session checks.
 
-## 2) Route-level and bundle shaping
-- **Route-based code splitting**: Split `/simulator`, `/quiz`, and AI chat into separate chunks; prefetch on idle for likely next routes.
-- **Chunk isolation for editors**: Load only required Monaco languages/themes; consider a lighter editor for read-only views.
-- **Error/loading fallbacks**: Provide skeletons or spinners inside `Suspense` boundaries to keep navigation snappy.
+## 2) Bundle Size & Code Bloat
+- **Analyze bundle:** Use a bundle analyzer to locate heavy dependencies (e.g., Monaco, icon packs) and confirm tree-shaking.
+- **Code-split:** Split large features (simulator, AI tutor, quiz builder) into separate chunks; keep the initial bundle limited to core UI/auth.
+- **Prune extras:** Remove unused polyfills or legacy code paths; ensure production builds are used.
+- **Compression & caching:** Serve JS/CSS with gzip/Brotli and long-term caching for static assets.
 
-## 3) Simulator-specific improvements
-- **Rendering loop**: Keep fast-ticking simulation state outside React where possible (canvas or refs), and batch UI updates (1–2 Hz) for HUD panels.
-- **Offload heavy work**: Move instruction execution/analysis to a Web Worker; exchange batched messages instead of per-tick state.
-- **Persistence**: Debounce saves of code/config to Supabase and clean up subscriptions/intervals on unmount.
+## 3) Lazy Loading & Dynamic Imports
+- **React.lazy + Suspense:** Dynamically import heavy components (simulator, AI chat, quiz pages) and wrap in `<Suspense>` with lightweight fallbacks.
+- **Route-based splitting:** Lazy-load page components via the router so only visited routes fetch their code.
+- **Deferred libraries:** Dynamically import heavy SDKs (AI, charting, editor languages) inside event handlers or feature entry points.
+- **Media lazy-load:** Use `loading="lazy"` or IntersectionObserver for images/videos that aren’t immediately visible.
 
-## 4) AI Tutor efficiency
-- **On-demand loading**: Lazy-load the chat UI and AI SDK; show a lightweight placeholder until the chunk arrives.
-- **Streaming UX**: Stream responses when supported and avoid blocking renders while awaiting AI responses.
-- **Server-side heavy lifting**: If using local models, load them in a worker or shift inference to a Supabase Edge Function/API to avoid main-thread stalls.
+## 4) Caching & SSR Strategies
+- **Client caching:** Add SWR/React Query for shared Supabase fetches to dedupe requests and enable stale-while-revalidate.
+- **Memoize work:** Use `useMemo`/`useCallback` for expensive computations reused across renders.
+- **Local storage/IndexedDB:** Cache rarely changing reference data and revalidate in the background.
+- **SSR/ISR:** Consider Next.js (or similar) to pre-render key pages and supply auth via cookies; cache static or semi-static pages at the CDN edge.
+- **Edge aggregation:** Use Supabase Edge Functions to consolidate multi-fetch flows into single responses when helpful.
 
-## 5) Data strategy & SSR
-- **Client caching**: Cache stable lists (courses/quizzes) and reuse across pages; revalidate in background rather than on every navigation.
-- **Server rendering**: For public/landing content, add SSR/ISR to deliver HTML first paint quickly; use Supabase cookie auth helpers if migrating to SSR.
-- **Edge aggregation**: Where multiple queries are required to render a page, provide a single Edge Function that returns aggregated data.
+## 5) AI Module Performance
+- **On-demand loading:** Lazy-load the AI tutor UI and any associated models/SDKs only when the user opens chat.
+- **Background initialization:** If loading local models/WASM, do so asynchronously or in a web worker; show progress indicators instead of blocking the main thread.
+- **Streaming responses:** Prefer streaming AI outputs for faster perceived responses; avoid awaiting AI calls during render.
+- **Throttle AI usage:** Debounce or gate AI-triggered requests (e.g., code analysis) to avoid excessive calls.
+- **Server-side inference:** Move heavy inference to serverless/edge functions when feasible to avoid large client downloads.
 
-## 6) Monitoring and guardrails
-- Add bundle analysis to CI to track chunk sizes per route.
-- Log Supabase query timings and set alerts for slow (>200 ms) requests in critical paths.
-- Track client metrics (TTFB, LCP, INP) to validate improvements after each release.
+## 6) Simulator Efficiency
+- **Isolate updates:** Avoid high-frequency React state updates; use refs/canvas/direct DOM for 60fps loops and throttle UI refreshes.
+- **Web workers:** Offload simulation/physics loops to workers and post batched UI updates back to the main thread.
+- **Lazy-load simulator:** Keep simulator code and assets in their own chunk loaded only on simulator entry.
+- **Efficient data flows:** Replace chatty polling with real-time subscriptions where appropriate; clean up intervals/subscriptions on unmount.
+- **Log/console strategy:** Virtualize or append logs efficiently to avoid rendering thousands of nodes.
 
-## Implementation order (suggested)
-1. Debounce chat/search/auto-save calls and parallelize independent fetches.
-2. Add lazy loading + route code splitting for simulator, AI Tutor, and quiz pages.
-3. Introduce React Query/SWR caching for shared reads; tighten Supabase `select` scopes.
-4. Index and refactor any remaining slow or N+1 Supabase queries.
-5. Move simulator hot loop to a worker and reduce React render frequency.
-6. Evaluate SSR/ISR for landing and dashboard surfaces.
+## 7) Network Request Optimization
+- **Eliminate N+1 on client:** Consolidate multi-request flows into single Supabase relational selects or RPCs.
+- **Batch calls:** Where joins aren’t possible, add aggregation endpoints/functions to reduce round-trips.
+- **Debounce & throttle:** Debounce search/input-driven requests (300–600ms) and throttle continuous actions to cut request volume.
+- **HTTP caching & compression:** Enable caching headers where safe and ensure payload compression for large responses.
+- **Monitor patterns:** Use browser DevTools to confirm startup/request patterns and verify deduping/caching behavior.
+
+## Next Steps
+- Run a bundle analysis to identify top contributors and choose targets for code-splitting.
+- Audit network traces for N+1 patterns and redundant Supabase calls; prioritize fixes with the largest latency impact.
+- Introduce a caching layer (SWR/React Query) for shared data and pilot lazy loading for simulator/AI modules.
+- Prototype moving simulator logic or AI model initialization into web workers to validate UI responsiveness gains.
