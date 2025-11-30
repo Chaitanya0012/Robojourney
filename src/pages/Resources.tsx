@@ -3,7 +3,6 @@ import Navigation from "@/components/Navigation";
 import ResourceCard from "@/components/ResourceCard";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search, Filter, Plus, Trash2 } from "lucide-react";
 import {
@@ -65,8 +64,6 @@ const Resources = () => {
     const isVisible = resource.is_approved || (user && resource.user_id === user.id) || isModerator;
     return matchesSearch && matchesCategory && matchesConfidence && isVisible;
   });
-
-  const pendingResources = resources.filter((resource) => !resource.is_approved);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
