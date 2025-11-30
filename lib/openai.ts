@@ -68,7 +68,7 @@ export async function chatCompletion(
   return json;
 }
 
-export async function embedText(text: string): Promise<number[]> {
+export async function embedText(text: string, model?: string): Promise<number[]> {
   const response = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: {
@@ -77,7 +77,7 @@ export async function embedText(text: string): Promise<number[]> {
     },
     body: JSON.stringify({
       input: text,
-      model: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small",
+      model: model ?? process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-large",
     }),
   });
 

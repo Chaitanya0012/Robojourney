@@ -1,12 +1,10 @@
 import { supabaseClient } from "./supabase";
 import { embedText } from "./openai";
 
-export async function saveMemory(
-  userId: string,
-  projectId: string,
-  text: string
-) {
-  const embedding = await embedText(text);
+const EMBEDDING_MODEL = "text-embedding-3-large";
+
+export async function saveMemory(userId: string, projectId: string, text: string) {
+  const embedding = await embedText(text, EMBEDDING_MODEL);
   const { error } = await supabaseClient.from("ai_memory").insert({
     user_id: userId,
     project_id: projectId,
@@ -19,11 +17,11 @@ export async function saveMemory(
 }
 
 export async function recallMemory(projectId: string, query: string) {
-  const embedding = await embedText(query);
+  const embedding = await embedText(query, EMBEDDING_MODEL);
   const { data, error } = await supabaseClient.rpc("match_memories", {
     query_embedding: embedding,
     match_threshold: 0.7,
-    match_count: 5,
+    match_count: 10,
     query_project_id: projectId,
   });
   if (error) {
