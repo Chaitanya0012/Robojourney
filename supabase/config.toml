@@ -1,1 +1,7 @@
 project_id = "cywbijaiyrqrjuoiqkrr"
+
+[functions.ai-tutor]
+verify_jwt = false
+
+[functions.ai-navigator]
+verify_jwt = false
