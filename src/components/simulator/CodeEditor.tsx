@@ -1,39 +1,27 @@
-import Editor from "@monaco-editor/react";
-import { useTheme } from "next-themes";
+import { useMemo } from "react";
 
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean;
-  language?: string;
+  placeholder?: string;
 }
 
-export const CodeEditor = ({ value, onChange, readOnly = false, language = "javascript" }: CodeEditorProps) => {
-  const { theme } = useTheme();
+export const CodeEditor = ({ value, onChange, readOnly = false, placeholder }: CodeEditorProps) => {
+  const lineNumbers = useMemo(() => value.split("\n").map((_, index) => index + 1).join("\n"), [value]);
 
   return (
-    <div className="h-[450px] border border-border/50 rounded-md overflow-hidden bg-background/95 backdrop-blur shadow-glow-cyan/20">
-      <Editor
-        height="100%"
-        defaultLanguage={language}
+    <div className="relative h-[520px] rounded-md border border-border/50 bg-background/95 shadow-glow-cyan/20 overflow-hidden">
+      <div className="absolute inset-y-0 left-0 w-12 select-none bg-muted/40 px-2 py-3 text-xs font-mono text-muted-foreground/80 border-r border-border/50">
+        <pre className="whitespace-pre leading-6">{lineNumbers}</pre>
+      </div>
+      <textarea
         value={value}
-        onChange={(value) => onChange(value || "")}
-        theme={theme === "dark" ? "vs-dark" : "light"}
-        options={{
-          readOnly,
-          minimap: { enabled: false },
-          fontSize: 14,
-          lineNumbers: "on",
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          tabSize: 2,
-          fontFamily: "'Fira Code', 'JetBrains Mono', 'Consolas', monospace",
-          fontLigatures: true,
-          cursorBlinking: "smooth",
-          cursorSmoothCaretAnimation: "on",
-          smoothScrolling: true,
-          padding: { top: 16, bottom: 16 },
-        }}
+        onChange={(event) => onChange(event.target.value)}
+        readOnly={readOnly}
+        spellCheck={false}
+        placeholder={placeholder}
+        className="absolute inset-0 w-full h-full resize-none border-0 bg-transparent pl-14 pr-4 py-3 font-mono text-sm leading-6 text-foreground focus:outline-none focus:ring-0"
       />
     </div>
   );
