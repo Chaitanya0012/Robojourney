@@ -67,13 +67,20 @@ const ResourceCard = ({ title, description, category, difficulty, type, rating =
             <a
               href={url}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noreferrer noopener"
+              referrerPolicy="no-referrer"
               className="text-sm font-semibold text-primary hover:underline break-all"
             >
               {url}
             </a>
             <Button asChild size="sm" variant="secondary" className="group">
-              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center">
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer noopener"
+                referrerPolicy="no-referrer"
+                className="inline-flex items-center"
+              >
                 <ExternalLink className="h-4 w-4 mr-1 group-hover:animate-glow-pulse" />
                 Open
               </a>

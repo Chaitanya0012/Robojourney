@@ -70,7 +70,7 @@ export default function Tutor() {
             AI Robotics Tutor
           </h1>
           <p className="text-muted-foreground text-lg">
-            Get personalized help with your mistakes and robotics concepts
+            Get personalized help with your mistakes and robotics concepts. The tutor won’t hand you answers — it will coach you to recall, test, and fix your own work.
           </p>
         </div>
 
