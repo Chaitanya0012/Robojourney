@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Flame, Sparkles, Target } from "lucide-react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
-import { Progress } from "@/components/ui/progress";
+import { generateConceptQuestions, QuizArticle } from "@/lib/questionGenerator";
 
 interface QuizQuestion {
   id: string;
@@ -19,15 +18,19 @@ interface Article {
   id: string;
   title: string;
   content: string;
-  wrong_vs_right: { wrong: string; right: string };
+  category?: string;
+  difficulty?: string;
+  wrong_vs_right?: { wrong: string; right: string };
 }
 
 const defaultStats = () => ({ xp: 0, correct: 0, incorrect: 0, streak: 0 });
 
 export default function QuizAdvanced() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const articleId = searchParams.get('article');
+  const articleFromState = (location.state as { article?: QuizArticle } | null)?.article;
 
   const [stats, setStats] = useState(defaultStats);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -37,24 +40,62 @@ export default function QuizAdvanced() {
   const [showArticle, setShowArticle] = useState(false);
   const [article, setArticle] = useState<Article | null>(null);
 
+  const storedArticles = useMemo(() => {
+    const articlesRaw = localStorage.getItem('robotics_basic_articles');
+    return articlesRaw ? (JSON.parse(articlesRaw) as Article[]) : [];
+  }, []);
+
   useEffect(() => {
     const bankRaw = localStorage.getItem('robotics_generated_quiz_bank');
-    const articlesRaw = localStorage.getItem('robotics_basic_articles');
-    
-    if (bankRaw && articlesRaw) {
-      const bank: QuizQuestion[] = JSON.parse(bankRaw);
-      const articles: Article[] = JSON.parse(articlesRaw);
-      
-      if (articleId) {
-        const filtered = bank.filter(q => q.articleId === articleId);
-        setQuestions(filtered);
-        const foundArticle = articles.find(a => a.id === articleId);
-        setArticle(foundArticle || null);
-      } else {
-        setQuestions(bank);
-      }
+    const bank: QuizQuestion[] = bankRaw ? JSON.parse(bankRaw) : [];
+
+    const selectedArticle =
+      articleFromState ||
+      storedArticles.find((a) => a.id === articleId) ||
+      (articleId
+        ? {
+            id: articleId,
+            title: `Article ${articleId}`,
+            content: "A quick robotics refresher.",
+          }
+        : null);
+
+    if (selectedArticle) {
+      setArticle(selectedArticle);
     }
-  }, [articleId]);
+
+    if (articleId) {
+      const filtered = bank.filter((q) => q.articleId === articleId);
+      if (filtered.length > 0) {
+        setQuestions(filtered);
+        return;
+      }
+
+      const generated = generateConceptQuestions(selectedArticle || {
+        id: articleId,
+        title: `Article ${articleId}`,
+        content: "This quiz checks your understanding of the article.",
+      }).map((q) => ({ ...q, articleId }));
+
+      const remainingBank = bank.filter((q) => q.articleId !== articleId);
+      localStorage.setItem('robotics_generated_quiz_bank', JSON.stringify([...remainingBank, ...generated]));
+
+      if (selectedArticle) {
+        const updatedArticles = [
+          ...storedArticles.filter((a) => a.id !== articleId),
+          selectedArticle,
+        ];
+        localStorage.setItem('robotics_basic_articles', JSON.stringify(updatedArticles));
+      }
+
+      setQuestions(generated);
+      return;
+    }
+
+    if (bank.length > 0) {
+      setQuestions(bank);
+    }
+  }, [articleFromState, articleId, storedArticles]);
 
   const currentQ = questions[currentIndex];
   const progress = questions.length ? Math.round((currentIndex / questions.length) * 100) : 0;

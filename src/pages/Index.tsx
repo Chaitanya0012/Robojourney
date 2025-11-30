@@ -20,7 +20,6 @@ import {
   ShieldCheck,
   Compass,
   Activity,
-  MessageSquare,
   AlertOctagon,
 } from "lucide-react";
 import heroImage from "@/assets/hero-robotics.jpg";
@@ -91,119 +90,39 @@ const Index = () => {
   const [aiRoute, setAiRoute] = useState(buildAiRoute("Prototype a rover"));
   const [navigatorStatus, setNavigatorStatus] = useState<"idle" | "ready">("idle");
 
-  const navSignal = useMemo(
-    () =>
-      navigatorStatus === "ready"
-        ? "Navigator locked—pulling next steps from your mission."
-        : "Share a mission goal to warm up the AI navigator.",
-    [navigatorStatus]
-  );
-
+  const navSignal = "Navigator is listening — drop a goal to get your next 3 plays.";
   const navActions = [
     {
-      title: "Review simulator wiring",
-      eta: "6 min",
-      detail: "Open the sandbox and confirm your pin map before flashing hardware.",
+      title: "Calibrate success criteria",
+      detail: "Clarify constraints and target outputs before you jump into wiring diagrams.",
+      eta: "4 min",
     },
     {
-      title: "Run a calibration quiz",
+      title: "Prototype in the simulator",
+      detail: "Load the sandbox sketch with safe defaults and sanity-check I/O maps.",
+      eta: "7 min",
+    },
+    {
+      title: "Lock in knowledge",
+      detail: "Run a focused quiz to validate what changed and push fixes to your plan.",
       eta: "5 min",
-      detail: "Validate understanding with a focused check-in before building.",
-    },
-    {
-      title: "Log progress to dashboard",
-      eta: "3 min",
-      detail: "Sync today's intent so XP, badges, and reminders stay aligned.",
     },
   ];
-
   const navRisks = [
     {
-      label: "Loose requirements",
-      status: "Clarify",
-      mitigation: "Add success metrics to the mission card before coding.",
+      label: "Wiring clarity",
+      status: "Low",
+      mitigation: "Confirm pin mappings in the simulator before flashing hardware.",
     },
     {
-      label: "Unvalidated wiring",
-      status: "Check",
-      mitigation: "Use the simulator template to confirm pinout and power budget.",
+      label: "Scope drift",
+      status: "Medium",
+      mitigation: "Keep today’s mission to a single prototype and log stretch goals.",
     },
     {
-      label: "Skill gap",
-      status: "Coach",
-      mitigation: "Run the adaptive quiz to surface gaps and patch them fast.",
-    },
-  ];
-
-  const accelerators = [
-    {
-      title: "Navigator recipes",
-      description: "Drop in structured missions with prebuilt success criteria.",
-      badge: "Live",
-      icon: Compass,
-    },
-    {
-      title: "Contextual tutor",
-      description: "Get grounded answers that track your current project state.",
-      badge: "Context-aware",
-      icon: Brain,
-    },
-    {
-      title: "One-click simulator",
-      description: "Launch the ESP32 sandbox with pins, sensors, and serial logging ready.",
-      badge: "No hardware",
-      icon: Target,
-    },
-    {
-      title: "Safety checklists",
-      description: "Built-in wiring and power reminders before you connect real devices.",
-      badge: "Guardrails",
-      icon: ShieldCheck,
-    },
-  ];
-
-  const journeyPreview = [
-    {
-      title: "Mission briefing",
-      focus: "Planning",
-      progress: 72,
-      tags: ["Goals", "Constraints", "XP"],
-    },
-    {
-      title: "Simulator warm-up",
-      focus: "Build",
-      progress: 64,
-      tags: ["Pin map", "Serial", "Test cases"],
-    },
-    {
-      title: "Adaptive quiz",
-      focus: "Mastery",
-      progress: 58,
-      tags: ["Feedback", "Confidence", "Gaps"],
-    },
-    {
-      title: "Share recap",
-      focus: "Collaboration",
-      progress: 80,
-      tags: ["Highlights", "Next steps", "Support"],
-    },
-  ];
-
-  const trustSignals = [
-    {
-      title: "Grounded answers",
-      description: "Tutor responses pull from your mission, simulator state, and quiz history.",
-      icon: MessageSquare,
-    },
-    {
-      title: "Transparent XP",
-      description: "Every action updates your dashboard so you always know what's next.",
-      icon: Activity,
-    },
-    {
-      title: "Community-first",
-      description: "Collaboration requests are moderated and include project context up front.",
-      icon: Users,
+      label: "Timeboxing",
+      status: "Low",
+      mitigation: "Use the auto-generated ETA badges to keep each step contained.",
     },
   ];
 
@@ -230,10 +149,178 @@ const Index = () => {
     },
   ];
 
+  const accelerators = [
+    {
+      icon: Sparkles,
+      title: "AI navigator",
+      description: "Generate confident next steps based on your stated mission and current XP.",
+      badge: "Live",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Safety rails",
+      description: "Built-in reminders for wiring, current limits, and serial safeguards in every template.",
+      badge: "Auto",
+    },
+    {
+      icon: Rocket,
+      title: "Simulator boosts",
+      description: "Spin up ESP32 or Arduino sketches with prewired pins and quick serial plotting.",
+      badge: "Beta",
+    },
+    {
+      icon: Brain,
+      title: "Tutor feedback",
+      description: "Get context-aware explanations and hints that match your project’s constraints.",
+      badge: "New",
+    },
+  ];
+
+  const journeyPreview = [
+    {
+      title: "Mission brief",
+      focus: "Orientation",
+      progress: 64,
+      tags: ["Goals", "Constraints", "Readiness"],
+    },
+    {
+      title: "Simulator lap",
+      focus: "Build",
+      progress: 72,
+      tags: ["Sandbox", "Pin map", "Serial"],
+    },
+    {
+      title: "Skill lock-in",
+      focus: "Assessment",
+      progress: 58,
+      tags: ["Adaptive quiz", "XP", "Reflections"],
+    },
+    {
+      title: "Share + iterate",
+      focus: "Collab",
+      progress: 46,
+      tags: ["Recap", "Feedback", "Next steps"],
+    },
+  ];
+
+  const trustSignals = [
+    {
+      icon: ShieldCheck,
+      title: "Safety-first guidance",
+      description: "Every mission includes wiring reminders and risk flags before you ship anything physical.",
+    },
+    {
+      icon: Brain,
+      title: "Clarity from the tutor",
+      description: "Explanations stay grounded in your project goals so you know why steps matter.",
+    },
+    {
+      icon: Users,
+      title: "Community-backed",
+      description: "Collaborations, shared resources, and badges keep you accountable and motivated.",
+    },
+  ];
+
   const consentLabel = useMemo(
     () => (trainingConsent ? "Training allowed on anonymized activity" : "Keep my data private"),
     [trainingConsent]
   );
+
+  const isLoggedIn = Boolean(user);
+
+  const navSignal = "Navigator synced — adaptive steps will update as you adjust your plan.";
+
+  const navActions = [
+    { title: "Open the simulator", eta: "5 min", detail: "Load the ESP32 sandbox and validate pin mappings." },
+    {
+      title: "Review safety checks",
+      eta: "3 min",
+      detail: "Confirm voltage limits and grounding before connecting any new hardware.",
+    },
+    { title: "Set a quick quiz", eta: "6 min", detail: "Run a targeted quiz to catch knowledge gaps before building." },
+  ];
+
+  const navRisks = [
+    {
+      label: "Loose wiring",
+      status: "Monitor",
+      mitigation: "Double-check breadboard rails and use strain relief on sensor leads.",
+    },
+    { label: "Firmware drift", status: "Mitigate", mitigation: "Commit small changes and test serial output frequently." },
+    { label: "Scope creep", status: "Avoid", mitigation: "Lock scope to one success metric per session." },
+  ];
+
+  const accelerators = [
+    {
+      title: "Simulator sandbox",
+      description: "Wire virtual sensors, test pinMode scaffolds, and export the sketch when ready.",
+      badge: "No hardware needed",
+      icon: Cpu,
+    },
+    {
+      title: "AI tutor",
+      description: "Get grounded answers with wiring reminders and code snippets that match your build.",
+      badge: "Context-aware",
+      icon: Brain,
+    },
+    {
+      title: "Sprint planner",
+      description: "Convert your goal into a short sequence of shippable robotics tasks.",
+      badge: "Auto-updated",
+      icon: Sparkles,
+    },
+    {
+      title: "Badge tracker",
+      description: "See which competencies unlock next and what steps to finish them.",
+      badge: "Motivation",
+      icon: Target,
+    },
+  ];
+
+  const journeyPreview = [
+    {
+      title: "Calibrate the mission",
+      focus: "Clarity",
+      progress: 72,
+      tags: ["Goals", "Constraints", "Success metrics"],
+    },
+    {
+      title: "Prototype in simulator",
+      focus: "Build",
+      progress: 64,
+      tags: ["Pin map", "Serial logs", "Test cases"],
+    },
+    {
+      title: "Quiz for gaps",
+      focus: "XP",
+      progress: 58,
+      tags: ["Debugging", "Electronics", "C/C++"],
+    },
+    {
+      title: "Share recap",
+      focus: "Collab",
+      progress: 80,
+      tags: ["Artifacts", "Lessons", "Next steps"],
+    },
+  ];
+
+  const trustSignals = [
+    {
+      title: "Transparent XP system",
+      description: "Every activity shows how much experience and progress it adds to your goals.",
+      icon: Target,
+    },
+    {
+      title: "Mentor-grade guidance",
+      description: "Tutor answers cite safety checks, wiring notes, and code tailored to your setup.",
+      icon: GraduationCap,
+    },
+    {
+      title: "Built for collaboration",
+      description: "Share recaps, swap resources, and invite teammates to review your simulator runs.",
+      icon: Globe2,
+    },
+  ];
 
   const handlePlan = () => {
     const trimmed = planInput.trim();
