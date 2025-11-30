@@ -35,6 +35,34 @@ const Index = () => {
       action: () => navigate("/learn"),
     },
   ]);
+  const [navConfidence, setNavConfidence] = useState(84);
+  const [navPlan, setNavPlan] = useState(
+    () =>
+      [
+        {
+          title: "Prototype & scope",
+          detail: "Lock in constraints and what success means for today",
+          eta: "15 min",
+          status: "ready" as const,
+        },
+        {
+          title: "Simulate the firmware",
+          detail: "Use the board sandbox to validate pin logic before wiring",
+          eta: "25 min",
+          status: "queued" as const,
+        },
+        {
+          title: "Test your recall",
+          detail: "Run a 5-question check to solidify what you just built",
+          eta: "10 min",
+          status: "queued" as const,
+        },
+      ]
+  );
+  const [navLog, setNavLog] = useState([
+    "Navigator listening for your goal...",
+    "Telemetry: simulator available · quizzes synced",
+  ]);
 
   const createNavigatorPlan = (goal: string) => {
     const trimmedGoal = goal.trim() || "Ship a stable robot demo";
@@ -116,6 +144,34 @@ const Index = () => {
         description: "Spin up the simulator and preview your firmware without flashing hardware.",
         action: () => navigate("/simulator"),
       },
+    ]);
+
+    setNavPlan([
+      {
+        title: "Clarify goal",
+        detail: trimmed,
+        eta: "10 min",
+        status: "ready",
+      },
+      {
+        title: "Simulate & iterate",
+        detail: "Validate code in the sandbox and capture telemetry",
+        eta: "30 min",
+        status: "queued",
+      },
+      {
+        title: "Checkpoint quiz",
+        detail: "Lock in what you learned with adaptive questions",
+        eta: "10 min",
+        status: "queued",
+      },
+    ]);
+
+    setNavConfidence((score) => Math.min(99, score + 3));
+    setNavLog((log) => [
+      ...log,
+      `Goal locked: ${trimmed}`,
+      "Navigator generated a path with simulator + quiz checkpoints",
     ]);
   };
 
@@ -234,7 +290,7 @@ const Index = () => {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[2fr,1fr] items-start">
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <label className="text-sm text-muted-foreground">What do you want to do today?</label>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center">
                   <input
@@ -248,46 +304,98 @@ const Index = () => {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <button
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition ${
-                      trainingConsent ? "border-primary/60 bg-primary/10" : "border-border"
-                    }`}
-                    onClick={() => setTrainingConsent((prev) => !prev)}
-                    aria-pressed={trainingConsent}
-                  >
-                    <ShieldCheck className="h-4 w-4 text-primary" />
-                    {consentLabel}
-                  </button>
-                  <span className="text-muted-foreground">Toggle whether your activity trains the LLM.</span>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3 text-sm">
+                    <button
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition ${
+                        trainingConsent ? "border-primary/60 bg-primary/10" : "border-border"
+                      }`}
+                      onClick={() => setTrainingConsent((prev) => !prev)}
+                      aria-pressed={trainingConsent}
+                    >
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      {consentLabel}
+                    </button>
+                    <span className="text-muted-foreground">Toggle whether your activity trains the LLM.</span>
+                  </div>
+                  <div className="text-xs px-3 py-2 rounded-full bg-primary/10 text-primary font-semibold">
+                    Navigator confidence: {navConfidence}%
+                  </div>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  {navigatorPlan.map((step, index) => (
-                    <Card key={step.title} className="p-4 border-primary/20 bg-background/70">
-                      <div className="flex items-center justify-between text-xs mb-2">
-                        <div className="px-2 py-1 rounded-full bg-primary/10 text-primary font-semibold">{step.status}</div>
-                        <span className="text-muted-foreground">{step.eta}</span>
+                <Card className="p-4 border border-primary/20 bg-background/70">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.15em] text-primary">Navigator route</p>
+                      <h3 className="text-lg font-semibold">Live guidance to your goal</h3>
+                    </div>
+                    <div className="text-xs px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-300/40 text-emerald-100">
+                      Connected
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {dailyPlan.map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={item.action}
+                        className="w-full text-left p-3 rounded-lg border border-border/60 hover:border-primary/60 hover:bg-primary/5 transition"
+                      >
+                        <p className="text-sm font-semibold flex items-center gap-2">
+                          <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{item.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+              <Card className="p-4 border-dashed border-primary/30 bg-primary/5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">AI Navigator plan</p>
+                  <span className="text-xs px-2 py-1 rounded-full bg-secondary/10 text-secondary">vNext</span>
+                </div>
+                <div className="space-y-3">
+                  {navPlan.map((step, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-lg border border-border/60 bg-background/60 flex items-start gap-3"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold">
+                        {idx + 1}
                       </div>
-                      <p className="text-sm font-semibold text-foreground">{index + 1}. {step.title}</p>
-                      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{step.detail}</p>
-                    </Card>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">{step.title}</p>
+                          <span className="text-[10px] px-2 py-1 rounded-full border border-border/70">
+                            {step.eta}
+                          </span>
+                          <span
+                            className={`text-[10px] px-2 py-1 rounded-full ${
+                              step.status === "ready"
+                                ? "bg-emerald-500/10 text-emerald-200 border border-emerald-400/40"
+                                : "bg-amber-500/10 text-amber-100 border border-amber-400/40"
+                            }`}
+                          >
+                            {step.status === "ready" ? "Active" : "Queued"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{step.detail}</p>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
-              <Card className="p-4 border-dashed border-primary/30 bg-primary/5">
-                <p className="text-sm text-muted-foreground mb-3">Autopilot queue</p>
-                <div className="space-y-2">
-                  {dailyPlan.map((item, idx) => (
-                    <button
-                      key={idx}
-                      onClick={item.action}
-                      className="w-full text-left p-3 rounded-lg hover:bg-primary/10 transition"
-                    >
-                      <p className="text-sm font-semibold">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">{item.description}</p>
-                    </button>
-                  ))}
+
+                <div className="rounded-lg bg-background/70 border border-border/60 p-3">
+                  <p className="text-xs uppercase text-muted-foreground tracking-[0.2em]">Flight log</p>
+                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    {navLog.slice(-4).map((line, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        {line}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </Card>
             </div>

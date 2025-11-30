@@ -56,141 +56,102 @@ const Simulator = () => {
   const [serialOutput, setSerialOutput] = useState<string[]>([]);
   const [ledState, setLedState] = useState(false);
   const [board, setBoard] = useState<keyof typeof boardPresets>("arduino-uno");
-  const [simulatorError, setSimulatorError] = useState<string | null>(null);
-  const [aiHint, setAiHint] = useState<string>("");
-  const [isHintLoading, setIsHintLoading] = useState(false);
+  const [compileStatus, setCompileStatus] = useState<"idle" | "ok" | "error" | "analyzing">("idle");
+  const [compileErrors, setCompileErrors] = useState<string[]>([]);
 
-  const { user } = useAuth();
+  const extractSerialMessages = (sketch: string) => {
+    const regex = /Serial\.println?\(([^)]+)\)/g;
+    const messages: string[] = [];
+    let match;
 
-  const currentBoard = useMemo(() => boardPresets[board], [board]);
+    while ((match = regex.exec(sketch))) {
+      messages.push(match[1].replace(/["'`]/g, "").trim());
+    }
 
-  const usedPins = useMemo(() => {
-    const matches = Array.from(code.matchAll(/\b(?:pinMode|digitalWrite|analogWrite)\s*\(\s*([A-Za-z0-9_]+)\s*,/g));
-    return matches.map(match => {
-      const pin = match[1].toString().toUpperCase();
-      if (/^\d+$/.test(pin)) return `D${pin}`;
-      return pin;
-    });
-  }, [code]);
-
-  useEffect(() => {
-    telemetryRef.current = telemetry;
-  }, [telemetry]);
-
-  const appendSerial = (line: string) => {
-    setSerialOutput((prev) => [...prev.slice(-12), line]);
+    return messages.length > 0
+      ? messages
+      : ["No explicit Serial.print calls found, streaming telemetry only."];
   };
 
-  const analyzeSketch = (sketch: string) => {
+  const validateSketch = (sketch: string) => {
     const errors: string[] = [];
-    const warnings: string[] = [];
 
     if (!sketch.includes("void setup")) errors.push("Missing setup() function");
     if (!sketch.includes("void loop")) errors.push("Missing loop() function");
 
-    const braceBalance = sketch.split("").reduce((acc, char) => {
-      if (char === "{") return acc + 1;
-      if (char === "}") return acc - 1;
-      return acc;
-    }, 0);
-    if (braceBalance !== 0) errors.push("Unbalanced braces detected");
+    const braceDiff = (sketch.match(/\{/g)?.length || 0) - (sketch.match(/\}/g)?.length || 0);
+    if (braceDiff !== 0) errors.push("Unbalanced braces detected");
 
-    if (/TODO|fixme|\?\?\?/i.test(sketch)) warnings.push("Sketch contains TODO/placeholder text");
-    if (!/pinMode\s*\(/i.test(sketch)) warnings.push("No pinMode calls found – pins may float");
-
-    const togglesLed = /digitalWrite\s*\(\s*LED_BUILTIN/i.test(sketch);
-    const usesSerial = /Serial\./i.test(sketch);
-    const motorCommands = (sketch.match(/digitalWrite\s*\(\s*(2|3)/g) || []).length;
-    const ultrasonicReads = /ultrasonic|ping|distance/i.test(sketch);
-
-    return {
-      ok: errors.length === 0,
-      errors,
-      warnings,
-      profile: {
-        togglesLed,
-        usesSerial,
-        motorCommands,
-        ultrasonicReads,
-      },
-    };
-  };
-
-  const clearTimers = () => {
-    if (simInterval.current) {
-      clearInterval(simInterval.current);
-      simInterval.current = null;
-    }
-    if (ledInterval.current) {
-      clearInterval(ledInterval.current);
-      ledInterval.current = null;
-    }
-  };
-
-  const analyzeCodeForErrors = (sketch: string) => {
-    if (!sketch.includes("setup")) return "Sketch is missing a setup() function.";
-    if (!sketch.includes("loop")) return "Sketch is missing a loop() function.";
-
-    const opens = (sketch.match(/{/g) || []).length;
-    const closes = (sketch.match(/}/g) || []).length;
-    if (opens !== closes) return "Unbalanced braces detected—check your curly brackets.";
-
-    return null;
-  };
-
-  const requestAiHint = async (errorMessage: string) => {
-    setIsHintLoading(true);
-    setAiHint("");
-
-    const prompt = `You are an encouraging robotics tutor. A student simulator run failed. Share short guiding questions and hints only—do not reveal the full fix. Error: ${errorMessage}. Code:\n\n${code}`;
-
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-tutor', {
-        body: {
-          prompt,
-          userId: user?.id,
-          action: 'chat'
-        }
-      });
-
-      if (error) throw error;
-      setAiHint(data.response || "Let's walk through the issue together.");
-    } catch (err: any) {
-      console.error('AI hint error', err);
-      toast.error("AI tutor couldn't analyze the error right now.");
-    } finally {
-      setIsHintLoading(false);
-    }
-  };
-
-  const handleRun = () => {
-    if (!isRunning) {
-      const detectedError = analyzeCodeForErrors(code);
-      if (detectedError) {
-        setSimulatorError(detectedError);
-        setSerialOutput((prevOutput) => [...prevOutput, `⚠️ ${detectedError}`]);
-        requestAiHint(detectedError);
-        return;
-      }
-      setSimulatorError(null);
-      setAiHint("");
+    if (!/Serial\.begin/.test(sketch)) {
+      errors.push("Serial port never initialized (Serial.begin missing)");
     }
 
-    setIsRunning((prev) => {
-      const next = !prev;
-      if (next) {
-        setSerialOutput((prevOutput) => [...prevOutput, "▶ Simulation started"]);
-      }
-      if (compilation.profile.ultrasonicReads && tick % 3 === 0) {
-        appendSerial(`[Sensor] Ultrasonic ${telemetry.sensors.ultrasonic.toFixed(2)}m`);
-      }
+    if (!/digitalWrite|analogWrite/.test(sketch)) {
+      errors.push("No pin control detected. Add digitalWrite/analogWrite calls.");
+    }
+
+    return errors;
+  };
+
+  const currentBoard = useMemo(() => boardPresets[board], [board]);
+
+  const compiledMessages = useMemo(() => extractSerialMessages(code), [code]);
+
+  useEffect(() => {
+    setCompileStatus("idle");
+    setCompileErrors([]);
+  }, [code]);
+
+  useEffect(() => {
+    if (!isRunning || compileStatus !== "ok") return;
+
+    const messages = [
+      "[Boot] MCU ready. Uploading sketch...",
+      "[Info] Pins initialized",
+      ...compiledMessages.map((msg) => `[Serial] ${msg}`),
+      "[Sensor] Ultrasonic ping 24cm",
+      "[Info] LED toggled",
+    ];
+
+    let step = 0;
+    const interval = setInterval(() => {
+      setSerialOutput((prev) => [...prev, messages[step % messages.length]]);
+      setLedState((prev) => !prev);
+      step += 1;
     }, 900);
 
-    if (compilation.profile.togglesLed) {
-      ledInterval.current = setInterval(() => setLedState((prev) => !prev), 500);
-    } else {
-      setLedState(false);
+    return () => clearInterval(interval);
+  }, [isRunning, compileStatus, compiledMessages]);
+
+  const handleRun = () => {
+    if (isRunning) {
+      setIsRunning(false);
+      return;
     }
+
+    setCompileStatus("analyzing");
+    const issues = validateSketch(code);
+
+    if (issues.length) {
+      setCompileStatus("error");
+      setCompileErrors(issues);
+      setSerialOutput((prev) => [
+        ...prev,
+        "⛔ Compilation failed",
+        ...issues.map((issue) => `• ${issue}`),
+      ]);
+      setIsRunning(false);
+      return;
+    }
+
+    setCompileErrors([]);
+    setCompileStatus("ok");
+    setSerialOutput((prevOutput) => [
+      ...prevOutput,
+      "✅ Compile succeeded",
+      "▶ Simulation started",
+    ]);
+    setIsRunning(true);
   };
 
   const handleReset = () => {
@@ -198,8 +159,8 @@ const Simulator = () => {
     resetSimulation();
     setLedState(false);
     setSerialOutput([]);
-    setSimulatorError(null);
-    setAiHint("");
+    setCompileErrors([]);
+    setCompileStatus("idle");
   };
 
   const handlePause = () => {
@@ -243,14 +204,30 @@ const Simulator = () => {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
-          <Card className="p-6 glass-card space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h2 className="text-xl font-semibold">Code Editor</h2>
-                <p className="text-xs text-muted-foreground">We lint your sketch before running to avoid silent failures.</p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={isRunning ? handlePause : handleRun} className={isRunning ? "bg-orange-500" : "bg-green-500"}>
+          <Card className="p-6 glass-card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Code Editor</h2>
+              <div className="flex gap-2 items-center">
+                <div
+                  className={`text-xs px-3 py-1 rounded-full border ${
+                    compileStatus === "ok"
+                      ? "border-emerald-400/60 text-emerald-200 bg-emerald-500/10"
+                      : compileStatus === "error"
+                        ? "border-red-400/60 text-red-200 bg-red-500/10"
+                        : compileStatus === "analyzing"
+                          ? "border-amber-400/60 text-amber-100 bg-amber-500/10"
+                          : "border-border text-muted-foreground bg-background/60"
+                  }`}
+                >
+                  {compileStatus === "analyzing"
+                    ? "Analyzing sketch..."
+                    : compileStatus === "ok"
+                      ? "Ready to simulate"
+                      : compileStatus === "error"
+                        ? "Fix required"
+                        : "Idle"}
+                </div>
+                <Button size="sm" onClick={handleRun} className={isRunning ? "bg-orange-500" : "bg-green-500"}>
                   {isRunning ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
                   {isRunning ? "Pause" : "Run"}
                 </Button>
@@ -261,20 +238,26 @@ const Simulator = () => {
               </div>
             </div>
 
-            <CodeEditor value={code} onChange={setCode} language="cpp" />
+            <div className="border border-border/50 rounded-lg overflow-hidden h-[500px]">
+              <Editor
+                height="100%"
+                defaultLanguage="cpp"
+                theme="vs-dark"
+                value={code}
+                onChange={(value) => setCode(value || "")}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                }}
+              />
+            </div>
 
-            {compileFeedback && (
-              <div className={`rounded-lg border p-3 text-sm ${compileFeedback.ok ? "border-green-500/40 bg-green-500/5" : "border-destructive/40 bg-destructive/5"}`}>
-                <div className="flex items-center gap-2 font-semibold">
-                  {compileFeedback.ok ? <Activity className="h-4 w-4 text-green-500" /> : <Bug className="h-4 w-4 text-destructive" />}
-                  {compileFeedback.ok ? "Sketch ready" : "Compilation failed"}
-                </div>
-                <ul className="mt-2 space-y-1 list-disc list-inside text-muted-foreground">
-                  {compileFeedback.errors.map((err, idx) => (
-                    <li key={idx} className="text-destructive">{err}</li>
-                  ))}
-                  {compileFeedback.warnings.map((warn, idx) => (
-                    <li key={`w-${idx}`} className="text-amber-400">{warn}</li>
+            {compileErrors.length > 0 && (
+              <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-100">
+                <div className="font-semibold mb-1">Compilation blockers</div>
+                <ul className="list-disc list-inside space-y-1">
+                  {compileErrors.map((err) => (
+                    <li key={err}>{err}</li>
                   ))}
                 </ul>
               </div>
