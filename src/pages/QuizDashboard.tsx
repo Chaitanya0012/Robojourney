@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
+import { Sparkles } from "lucide-react";
 
 interface Article {
   id: string;
@@ -22,6 +23,33 @@ interface QuizQuestion {
   explanation: string;
   difficulty: string;
 }
+
+const QUIZ_PANELS = [
+  {
+    title: "Speedrun",
+    description: "30-second cap per item, adaptive difficulty for fast feedback.",
+    accent: "from-primary/30 to-accent/40",
+    badge: "Timeboxed",
+  },
+  {
+    title: "Deep dive",
+    description: "Fewer questions with detailed rationales and linked resources.",
+    accent: "from-secondary/30 to-primary/30",
+    badge: "Explain",
+  },
+  {
+    title: "Competition prep",
+    description: "Mix of control, electronics, and troubleshooting under pressure.",
+    accent: "from-amber-200/40 to-red-200/40",
+    badge: "Mixed topics",
+  },
+];
+
+const QUIZ_METRICS = [
+  { label: "Daily streak", value: "7 days", tone: "text-primary" },
+  { label: "Avg. accuracy", value: "82%", tone: "text-secondary" },
+  { label: "XP potential", value: "+340 XP", tone: "text-accent" },
+];
 
 const BASIC_ARTICLES: Article[] = [
   { id: 'basic_01', title: 'What is a Robot — Simple Definition', content: `A robot is a machine that senses its environment, makes decisions (simple or complex), and acts on those decisions.\n\nWhy it matters: Clear definition helps you identify what parts (sensors, controller, actuators) you need to build a functioning robot.`, wrong_vs_right: { wrong: 'Thinking robots must look humanoid or be very complex.', right: 'Robots can be as simple as a microcontroller driving a motor — functionality over form.' } },
@@ -145,27 +173,42 @@ export default function QuizDashboard() {
             document.getElementById('curriculum')?.scrollIntoView({ behavior: 'smooth' });
           }} />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
-              <p className="text-xs uppercase tracking-wide text-primary">Question Bank</p>
-              <p className="text-3xl font-bold">{quizStats.totalQuestions}</p>
-              <p className="text-sm text-muted-foreground">Auto-generated MCQs ready to launch instantly.</p>
-            </div>
-            <div className="rounded-2xl border border-secondary/30 bg-secondary/5 p-4">
-              <p className="text-xs uppercase tracking-wide text-secondary">Learning Streak</p>
-              <p className="text-3xl font-bold">{quizStats.streak} days</p>
-              <p className="text-sm text-muted-foreground">Keep your streak alive to boost XP multipliers.</p>
-            </div>
-            <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4">
-              <p className="text-xs uppercase tracking-wide text-accent">Last Checkpoint</p>
-              <p className="text-3xl font-bold">{quizStats.lastScore}%</p>
-              <p className="text-sm text-muted-foreground">Average of your most recent quiz session.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 my-8">
+            {QUIZ_PANELS.map(panel => (
+              <div
+                key={panel.title}
+                className={`p-5 rounded-2xl border border-border bg-gradient-to-br ${panel.accent} shadow-lg backdrop-blur`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-foreground">{panel.title}</h3>
+                  <span className="px-3 py-1 rounded-full bg-background/70 text-xs font-semibold">{panel.badge}</span>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">{panel.description}</p>
+              </div>
+            ))}
+
+            <div className="p-5 rounded-2xl border border-border bg-card shadow-xl flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-primary font-semibold">
+                <Sparkles className="w-4 h-4" />
+                Quiz pulse
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {QUIZ_METRICS.map(metric => (
+                  <div key={metric.label} className="p-3 rounded-lg bg-background/60 border border-border/60">
+                    <div className="text-xs text-muted-foreground">{metric.label}</div>
+                    <div className={`text-lg font-bold ${metric.tone}`}>{metric.value}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Choose a mode above to change pacing, explanation depth, and XP yield.
+              </p>
             </div>
           </div>
 
           <motion.h2
             initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={{ opacity: 1, y: 0 }} 
             className="text-3xl font-semibold mb-4 text-foreground"
           >
             Core Beginner Articles
