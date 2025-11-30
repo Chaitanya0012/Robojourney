@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { curriculumNodes } from "../lib/articles";
+import { supabaseClient } from "../lib/supabaseClient";
 
 export type ProgressEntry = {
   nodeId: string;
@@ -11,7 +12,7 @@ export type ProgressEntry = {
 };
 
 type Props = {
-  progress: Record<string, ProgressEntry>;
+  progress?: Record<string, ProgressEntry>;
   onSelect?: (nodeId: string) => void;
 };
 
@@ -31,13 +32,51 @@ const titles: Record<string, string> = {
   esp32_pwm_basics: "ESP32 PWM",
 };
 
-export function ProgressMap({ progress, onSelect }: Props) {
+export function ProgressMap({ progress: providedProgress, onSelect }: Props) {
+  const [progress, setProgress] = useState<Record<string, ProgressEntry>>(() => providedProgress ?? {});
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabaseClient.from("progress").select("node_id, completed, locked, next_review_date");
+      if (cancelled || !data) return;
+      const mapped: Record<string, ProgressEntry> = {};
+      data.forEach((row: any) => {
+        mapped[row.node_id] = {
+          nodeId: row.node_id,
+          completed: !!row.completed,
+          locked: !!row.locked,
+          nextReviewDate: row.next_review_date ?? undefined,
+        };
+      });
+      setProgress((prev) => ({ ...prev, ...mapped }));
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [providedProgress]);
+
+  const computed = useMemo(() => {
+    const fallback: Record<string, ProgressEntry> = {};
+    curriculumNodes.forEach((nodeId, idx) => {
+      const prior = fallback[curriculumNodes[idx - 1]] ?? progress[curriculumNodes[idx - 1]];
+      const entry = progress[nodeId] ?? { nodeId, completed: false, locked: true };
+      const locked = idx === 0 ? false : !!prior?.locked || !prior?.completed;
+      fallback[nodeId] = { ...entry, locked };
+    });
+    return fallback;
+  }, [progress]);
+
+  const glowNode = useMemo(() => curriculumNodes.find((id) => !computed[id]?.completed && !computed[id]?.locked), [computed]);
+
   return (
     <div className="flex flex-wrap gap-4">
-      {curriculumNodes.map((nodeId, idx) => {
-        const status = progress[nodeId];
-        const locked = status?.locked ?? idx !== 0 && !progress[curriculumNodes[idx - 1]]?.completed;
-        const completed = status?.completed ?? false;
+      {curriculumNodes.map((nodeId) => {
+        const status = computed[nodeId];
+        const locked = status?.locked;
+        const completed = status?.completed;
+        const isNext = glowNode === nodeId;
         return (
           <button
             key={nodeId}
@@ -47,7 +86,7 @@ export function ProgressMap({ progress, onSelect }: Props) {
                 : locked
                   ? "bg-gray-200 text-gray-500"
                   : "bg-blue-200 text-blue-900"
-            }`}
+            } ${isNext ? "animate-glow" : ""}`}
             disabled={locked}
             onClick={() => onSelect?.(nodeId)}
             aria-label={`Curriculum node ${titles[nodeId] || nodeId}`}

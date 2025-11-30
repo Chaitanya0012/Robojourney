@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import React from "react";
-import { NavigationOrchestratorProvider } from "../components/NavigationOrchestrator";
+import { NavigationOrchestrator } from "../components/NavigationOrchestrator";
+import { XPBar } from "../components/XPBar";
 
 export const metadata: Metadata = {
   title: "Robotics Learning OS",
@@ -13,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-background text-foreground">
-        <NavigationOrchestratorProvider>
+        <NavigationOrchestrator>
           <div className="min-h-screen flex flex-col">
             <header className="border-b border-border/40 bg-gradient-to-r from-slate-900/70 via-slate-900/40 to-slate-900/70 px-6 py-4 backdrop-blur">
               <div className="mx-auto flex max-w-6xl items-center justify-between">
@@ -36,13 +37,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </header>
             <main className="flex-1 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-              {children}
+              <div className="max-w-6xl mx-auto w-full space-y-6 px-4 py-6">
+                <XPBar />
+                {children}
+              </div>
             </main>
             <footer className="border-t border-border/40 bg-slate-950/80 py-6 text-center text-sm text-muted-foreground">
               Built for curious robotics learners. Guided by AI.
             </footer>
           </div>
-        </NavigationOrchestratorProvider>
+        </NavigationOrchestrator>
       </body>
     </html>
   );
