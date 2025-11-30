@@ -11,6 +11,8 @@ import { MistakesList } from "@/components/MistakesList";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { generateConceptQuestions } from "@/lib/questionGenerator";
 
 interface Lesson {
   id: string;
@@ -40,6 +42,7 @@ export default function ArticleLearning() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState("");
   const [completedArticles, setCompletedArticles] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
 
   const { data: lessons, isLoading: lessonsLoading } = useQuery({
     queryKey: ['robotics-articles'],
@@ -92,6 +95,64 @@ export default function ArticleLearning() {
     setIsEditing(false);
   };
 
+  const mapToQuizBankFormat = (qs: QuizQuestion[], article: Lesson) =>
+    qs.map((q, idx) => {
+      const options = q.options || [];
+      const correctIndex = Math.max(options.findIndex(opt => opt === q.correct_answer), 0);
+
+      return {
+        id: q.id || `${article.id}-db-${idx}`,
+        articleId: article.id,
+        question: q.question,
+        options,
+        correctIndex,
+        explanation: q.explanation,
+        difficulty: q.difficulty || "Medium",
+      };
+    });
+
+  const persistArticleQuiz = (article: Lesson, bankEntries: ReturnType<typeof mapToQuizBankFormat>) => {
+    const existingBankRaw = localStorage.getItem('robotics_generated_quiz_bank');
+    const existingArticlesRaw = localStorage.getItem('robotics_basic_articles');
+
+    const existingBank = existingBankRaw ? (JSON.parse(existingBankRaw) as any[]) : [];
+    const filteredBank = existingBank.filter(q => q.articleId !== article.id);
+
+    const existingArticles = existingArticlesRaw ? (JSON.parse(existingArticlesRaw) as any[]) : [];
+    const updatedArticles = [
+      ...existingArticles.filter((a: any) => a.id !== article.id),
+      {
+        id: article.id,
+        title: article.title,
+        content: article.content,
+        category: article.category,
+        difficulty: article.difficulty,
+        wrong_vs_right: {
+          wrong: `Skipping checks for ${article.category || 'robotics basics'}.`,
+          right: `Reviewing ${article.category || 'robotics'} ideas carefully before building.`,
+        },
+      },
+    ];
+
+    localStorage.setItem('robotics_generated_quiz_bank', JSON.stringify([...filteredBank, ...bankEntries]));
+    localStorage.setItem('robotics_basic_articles', JSON.stringify(updatedArticles));
+  };
+
+  const handleStartQuiz = () => {
+    if (!selectedArticle) return;
+
+    const availableQuestions =
+      questions && questions.length > 0
+        ? mapToQuizBankFormat(questions, selectedArticle)
+        : generateConceptQuestions(selectedArticle).map((q) => ({
+            ...q,
+            articleId: selectedArticle.id,
+          }));
+
+    persistArticleQuiz(selectedArticle, availableQuestions);
+    navigate(`/quiz?article=${selectedArticle.id}`, { state: { article: selectedArticle } });
+  };
+
   const handleSaveArticle = async () => {
     if (!selectedArticle) return;
     
@@ -130,6 +191,12 @@ export default function ArticleLearning() {
 
   if (selectedArticle) {
     if (showQuiz) {
+      const generatedFallback = generateConceptQuestions(selectedArticle).map((q) => ({
+        ...q,
+        category: selectedArticle.category,
+        correct_answer: q.options[q.correctIndex],
+      }));
+
       return (
         <div className="min-h-screen bg-background">
           <Navigation />
@@ -154,10 +221,11 @@ export default function ArticleLearning() {
                 onComplete={handleArticleComplete}
               />
             ) : (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground mb-4">No quiz questions available for this article yet.</p>
-                <Button onClick={handleBackToArticles}>Back to Articles</Button>
-              </Card>
+              <ArticleQuizCard
+                article={selectedArticle}
+                questions={generatedFallback}
+                onComplete={handleArticleComplete}
+              />
             )}
           </div>
         </div>
@@ -218,8 +286,8 @@ export default function ArticleLearning() {
             )}
 
             <div className="flex gap-4 pt-6 border-t">
-              <Button 
-                onClick={() => setShowQuiz(true)} 
+              <Button
+                onClick={handleStartQuiz}
                 size="lg"
                 className="flex-1"
               >

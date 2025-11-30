@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
-import { Sparkles } from "lucide-react";
+import { AINavigatorPanel } from "@/components/AINavigatorPanel";
+import { Sparkles, Compass } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Article {
   id: string;
@@ -173,36 +175,43 @@ export default function QuizDashboard() {
             document.getElementById('curriculum')?.scrollIntoView({ behavior: 'smooth' });
           }} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 my-8">
-            {QUIZ_PANELS.map(panel => (
-              <div
-                key={panel.title}
-                className={`p-5 rounded-2xl border border-border bg-gradient-to-br ${panel.accent} shadow-lg backdrop-blur`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-foreground">{panel.title}</h3>
-                  <span className="px-3 py-1 rounded-full bg-background/70 text-xs font-semibold">{panel.badge}</span>
+          {/* AI Navigator - Prominent Placement */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 my-8">
+            <div className="lg:col-span-2">
+              <AINavigatorPanel className="h-full" />
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-5 rounded-2xl border border-border bg-card shadow-xl flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-primary font-semibold">
+                  <Sparkles className="w-4 h-4" />
+                  Quiz pulse
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">{panel.description}</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {QUIZ_METRICS.map(metric => (
+                    <div key={metric.label} className="p-3 rounded-lg bg-background/60 border border-border/60">
+                      <div className="text-xs text-muted-foreground">{metric.label}</div>
+                      <div className={`text-lg font-bold ${metric.tone}`}>{metric.value}</div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Choose a mode below to change pacing and XP yield.
+                </p>
               </div>
-            ))}
-
-            <div className="p-5 rounded-2xl border border-border bg-card shadow-xl flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-primary font-semibold">
-                <Sparkles className="w-4 h-4" />
-                Quiz pulse
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {QUIZ_METRICS.map(metric => (
-                  <div key={metric.label} className="p-3 rounded-lg bg-background/60 border border-border/60">
-                    <div className="text-xs text-muted-foreground">{metric.label}</div>
-                    <div className={`text-lg font-bold ${metric.tone}`}>{metric.value}</div>
+              
+              {QUIZ_PANELS.slice(0, 2).map(panel => (
+                <div
+                  key={panel.title}
+                  className={`p-4 rounded-xl border border-border bg-gradient-to-br ${panel.accent} shadow-lg backdrop-blur cursor-pointer hover:scale-[1.02] transition-transform`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-semibold text-foreground">{panel.title}</h3>
+                    <span className="px-2 py-0.5 rounded-full bg-background/70 text-[10px] font-semibold">{panel.badge}</span>
                   </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Choose a mode above to change pacing, explanation depth, and XP yield.
-              </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{panel.description}</p>
+                </div>
+              ))}
             </div>
           </div>
 
