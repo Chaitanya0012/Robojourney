@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,20 +20,19 @@ import {
   ShieldCheck,
   Compass,
   Activity,
-  MessageSquare,
+  AlertOctagon,
 } from "lucide-react";
 import heroImage from "@/assets/hero-robotics.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { usePlatformStats } from "@/hooks/usePlatformStats";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 
 const Index = () => {
   const { user } = useAuth();
   const { collaborations, isLoading } = useCollaboration();
   const { stats: platformStats } = usePlatformStats();
   const navigate = useNavigate();
+  const isLoggedIn = Boolean(user);
 
   const [planInput, setPlanInput] = useState("");
   const [trainingConsent, setTrainingConsent] = useState(false);
@@ -90,6 +90,42 @@ const Index = () => {
   const [aiRoute, setAiRoute] = useState(buildAiRoute("Prototype a rover"));
   const [navigatorStatus, setNavigatorStatus] = useState<"idle" | "ready">("idle");
 
+  const navSignal = "Navigator is listening — drop a goal to get your next 3 plays.";
+  const navActions = [
+    {
+      title: "Calibrate success criteria",
+      detail: "Clarify constraints and target outputs before you jump into wiring diagrams.",
+      eta: "4 min",
+    },
+    {
+      title: "Prototype in the simulator",
+      detail: "Load the sandbox sketch with safe defaults and sanity-check I/O maps.",
+      eta: "7 min",
+    },
+    {
+      title: "Lock in knowledge",
+      detail: "Run a focused quiz to validate what changed and push fixes to your plan.",
+      eta: "5 min",
+    },
+  ];
+  const navRisks = [
+    {
+      label: "Wiring clarity",
+      status: "Low",
+      mitigation: "Confirm pin mappings in the simulator before flashing hardware.",
+    },
+    {
+      label: "Scope drift",
+      status: "Medium",
+      mitigation: "Keep today’s mission to a single prototype and log stretch goals.",
+    },
+    {
+      label: "Timeboxing",
+      status: "Low",
+      mitigation: "Use the auto-generated ETA badges to keep each step contained.",
+    },
+  ];
+
   const features = [
     {
       icon: Target,
@@ -110,6 +146,78 @@ const Index = () => {
       icon: TrendingUp,
       title: "Level Up Skills",
       description: "Monitor your competencies in coding, electronics, and engineering with skill meters.",
+    },
+  ];
+
+  const accelerators = [
+    {
+      icon: Sparkles,
+      title: "AI navigator",
+      description: "Generate confident next steps based on your stated mission and current XP.",
+      badge: "Live",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Safety rails",
+      description: "Built-in reminders for wiring, current limits, and serial safeguards in every template.",
+      badge: "Auto",
+    },
+    {
+      icon: Rocket,
+      title: "Simulator boosts",
+      description: "Spin up ESP32 or Arduino sketches with prewired pins and quick serial plotting.",
+      badge: "Beta",
+    },
+    {
+      icon: Brain,
+      title: "Tutor feedback",
+      description: "Get context-aware explanations and hints that match your project’s constraints.",
+      badge: "New",
+    },
+  ];
+
+  const journeyPreview = [
+    {
+      title: "Mission brief",
+      focus: "Orientation",
+      progress: 64,
+      tags: ["Goals", "Constraints", "Readiness"],
+    },
+    {
+      title: "Simulator lap",
+      focus: "Build",
+      progress: 72,
+      tags: ["Sandbox", "Pin map", "Serial"],
+    },
+    {
+      title: "Skill lock-in",
+      focus: "Assessment",
+      progress: 58,
+      tags: ["Adaptive quiz", "XP", "Reflections"],
+    },
+    {
+      title: "Share + iterate",
+      focus: "Collab",
+      progress: 46,
+      tags: ["Recap", "Feedback", "Next steps"],
+    },
+  ];
+
+  const trustSignals = [
+    {
+      icon: ShieldCheck,
+      title: "Safety-first guidance",
+      description: "Every mission includes wiring reminders and risk flags before you ship anything physical.",
+    },
+    {
+      icon: Brain,
+      title: "Clarity from the tutor",
+      description: "Explanations stay grounded in your project goals so you know why steps matter.",
+    },
+    {
+      icon: Users,
+      title: "Community-backed",
+      description: "Collaborations, shared resources, and badges keep you accountable and motivated.",
     },
   ];
 
