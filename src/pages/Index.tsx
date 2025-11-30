@@ -1,19 +1,22 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import Navigation from "@/components/Navigation";
 import CollaborationDialog from "@/components/CollaborationDialog";
-import { Zap, Target, Users, TrendingUp, Sparkles, Rocket, Mail, ArrowRight, Star } from "lucide-react";
+import { Zap, Target, Users, TrendingUp, Sparkles, Rocket, Mail, ArrowRight, Star, Gauge, Brain, Shield, Medal } from "lucide-react";
 import heroImage from "@/assets/hero-robotics.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { usePlatformStats } from "@/hooks/usePlatformStats";
+import { LEVEL_THRESHOLDS, XP_REWARDS } from "@/hooks/useXP";
 
 const Index = () => {
   const { user } = useAuth();
   const { collaborations, isLoading } = useCollaboration();
   const { stats: platformStats } = usePlatformStats();
+  const isLoggedIn = Boolean(user);
 
   const features = [
     {
@@ -37,6 +40,38 @@ const Index = () => {
       description: "Monitor your competencies in coding, electronics, and engineering with skill meters.",
     },
   ];
+
+  const masteryPillars = [
+    {
+      icon: Gauge,
+      title: "XP Momentum",
+      description: "Unlock new robotics titles as you progress from Novice to Grand Robotics Master.",
+      accent: "Live leveling",
+    },
+    {
+      icon: Brain,
+      title: "AI Tutor Guidance",
+      description: "Personalized study plans and quiz feedback keep your learning on track.",
+      accent: "Adaptive feedback",
+    },
+    {
+      icon: Shield,
+      title: "Confidence Coaching",
+      description: "Skill sliders help you assess strengths, close gaps, and earn bonus XP.",
+      accent: "Skill mapping",
+    },
+  ];
+
+  const sampleXP = {
+    currentXP: 2450,
+    currentLevel: LEVEL_THRESHOLDS.find(level => level.level === 4),
+    nextLevel: LEVEL_THRESHOLDS.find(level => level.level === 5),
+  };
+
+  const currentLevelXP = sampleXP.currentLevel?.xp || 0;
+  const nextLevelXP = sampleXP.nextLevel?.xp || currentLevelXP;
+  const levelRange = Math.max(1, nextLevelXP - currentLevelXP);
+  const progressToNextLevel = Math.min(100, Math.max(0, ((sampleXP.currentXP - currentLevelXP) / levelRange) * 100));
 
   return (
     <div className="min-h-screen bg-gradient-cosmic overflow-hidden">
@@ -78,13 +113,13 @@ const Index = () => {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Link to="/auth" className="group">
-                  <Button 
-                    size="lg" 
+                <Link to={isLoggedIn ? "/dashboard" : "/auth"} className="group">
+                  <Button
+                    size="lg"
                     className="w-full sm:w-auto text-lg px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-cyan glow-border"
                   >
                     <Zap className="mr-2 h-5 w-5 group-hover:animate-glow-pulse" />
-                    Get Started Free
+                    {isLoggedIn ? "Go to Dashboard" : "Get Started Free"}
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
@@ -175,6 +210,111 @@ const Index = () => {
                 </p>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* XP & Mastery Section */}
+      <section className="py-24 px-4 relative overflow-hidden">
+        <div className="absolute inset-0 premium-gradient opacity-40" />
+        <div className="container mx-auto relative z-10">
+          <div className="grid lg:grid-cols-[1.2fr_1fr] gap-10 items-start">
+            <Card className="p-10 glass-card glow-border animate-reveal space-y-8">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-primary mb-2">RoboJourney XP Engine</p>
+                  <h3 className="text-4xl font-bold">Track your mastery in real time</h3>
+                  <p className="text-muted-foreground mt-2">A preview of what learners see on the dashboard.</p>
+                </div>
+                <div className="px-4 py-2 rounded-full bg-primary/10 border border-primary/30 text-primary text-sm font-medium">
+                  Level {sampleXP.currentLevel?.level}
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="p-6 rounded-2xl bg-card/60 border border-border/40">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Current XP</p>
+                      <p className="text-3xl font-bold">{sampleXP.currentXP.toLocaleString()} XP</p>
+                    </div>
+                    <Badge variant="secondary" className="text-sm">
+                      {sampleXP.currentLevel?.title}
+                    </Badge>
+                  </div>
+                  <Progress value={progressToNextLevel} className="h-3 mb-3" />
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>{currentLevelXP.toLocaleString()} XP</span>
+                    <span>Next: {nextLevelXP.toLocaleString()} XP</span>
+                  </div>
+                </div>
+
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-secondary/15 to-primary/10 border border-secondary/40">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Medal className="h-10 w-10 text-secondary" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">XP rewards preview</p>
+                      <p className="text-lg font-semibold">Earn XP with every action</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(XP_REWARDS).slice(0, 6).map(([key, value]) => (
+                      <div key={key} className="p-3 rounded-xl bg-card/70 border border-border/40">
+                        <p className="font-semibold capitalize">{key.replace(/_/g, " ")}</p>
+                        <p className="text-sm text-primary font-medium">+{value} XP</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                {LEVEL_THRESHOLDS.slice(0, 6).map((level) => (
+                  <div key={level.level} className="p-4 rounded-xl bg-card/70 border border-border/40">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Level {level.level}</p>
+                    <p className="font-semibold">{level.title}</p>
+                    <p className="text-sm text-primary font-medium mt-2">{level.xp.toLocaleString()} XP</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-primary/15 border border-primary/30">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Designed for clarity</p>
+                  <h4 className="text-2xl font-bold">What learners see first</h4>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                {masteryPillars.map((pillar, index) => (
+                  <Card
+                    key={pillar.title}
+                    className="p-6 glass-card glow-border animate-scale-in"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 rounded-xl premium-gradient">
+                        <pillar.icon className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <h5 className="text-xl font-bold">{pillar.title}</h5>
+                          <Badge variant="outline" className="border-border/40 text-xs">
+                            {pillar.accent}
+                          </Badge>
+                        </div>
+                        <p className="text-muted-foreground leading-relaxed">{pillar.description}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -270,13 +410,13 @@ const Index = () => {
               <p className="text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
                 Join thousands of learners transforming their robotics skills with RoboJourney
               </p>
-              <Link to="/auth" className="inline-block group">
-                <Button 
-                  size="lg" 
+              <Link to={isLoggedIn ? "/dashboard" : "/auth"} className="inline-block group">
+                <Button
+                  size="lg"
                   className="text-xl px-12 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-cyan glow-border"
                 >
                   <Zap className="mr-3 h-6 w-6 group-hover:animate-glow-pulse" />
-                  Create Free Account
+                  {isLoggedIn ? "Open Dashboard" : "Create Free Account"}
                   <ArrowRight className="ml-3 h-6 w-6 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
