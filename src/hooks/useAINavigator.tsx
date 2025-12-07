@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -123,6 +123,48 @@ export function useAINavigator() {
 
     setIsLoading(true);
     setError(null);
+
+    if (!isSupabaseConfigured) {
+      const fallbackPlan = DEFAULT_CONTENT_GRAPH.slice(0, 3).map((item, index) => ({
+        step_type: item.type,
+        target_id: item.id,
+        reason: index === 0
+          ? 'Start with the basics while Supabase is offline'
+          : 'Continue the guided path with local recommendations',
+        expected_duration_minutes: item.estimated_minutes,
+        difficulty: item.difficulty,
+        prerequisites: item.prerequisites,
+      }));
+
+      const fallbackResponse: NavigatorResponse = {
+        message: userMessage?.trim()
+          ? `We cannot reach Supabase right now, so here is a local plan based on your request: ${userMessage}`
+          : 'Supabase is not configured. Showing a local starter plan.',
+        ui_action: 'SHOW_PLAN',
+        ui_payload: {},
+        tutor_intent: 'plan_created',
+        plan: fallbackPlan,
+        skill_update: {
+          mechanics: 0.1,
+          electronics: 0.1,
+          programming: 0.1,
+          logic: 0.1,
+          robot_design: 0.1,
+          confidence: 0.1,
+        },
+        spaced_repetition: {
+          schedule: [],
+        },
+      };
+
+      setResponse(fallbackResponse);
+      toast({
+        title: 'Running in offline mode',
+        description: 'Supabase credentials are missing. Showing a demo learning path instead of failing.',
+      });
+      setIsLoading(false);
+      return fallbackResponse;
+    }
 
     try {
       // Fetch user profile data

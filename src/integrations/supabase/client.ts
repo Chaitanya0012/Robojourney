@@ -8,10 +8,12 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const FALLBACK_SUPABASE_URL = "https://placeholder.supabase.co";
 const FALLBACK_SUPABASE_KEY = "placeholder-public-anon-key";
 
+export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
+
 const supabaseUrl = SUPABASE_URL || FALLBACK_SUPABASE_URL;
 const supabaseKey = SUPABASE_PUBLISHABLE_KEY || FALLBACK_SUPABASE_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+if (!isSupabaseConfigured) {
   console.warn("Supabase environment variables are missing. Using placeholder credentials to keep the app running.");
 }
 
